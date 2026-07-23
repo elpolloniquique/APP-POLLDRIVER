@@ -10,64 +10,52 @@ Sistema de **despacho y seguimiento GPS** de repartidores para **Pollería El Po
 APP POLLON/
 ├── el-pollon/      ← tienda + admin existente
 └── polldriver/     ← este monorepo
+    ├── apps/admin-web
+    ├── apps/driver-mobile
+    └── packages/shared-types
 ```
 
 ## Documentación
 
-- [Plan de implementación (Fase 0)](./docs/POLLDRIVER_IMPLEMENTATION_PLAN.md)
-- [Integración El Pollón](./docs/integrations-el-pollon.md)
+- [Plan](./docs/POLLDRIVER_IMPLEMENTATION_PLAN.md)
 - [Despliegue GitHub + Vercel](./docs/DEPLOY_GITHUB_VERCEL.md)
-- [Fase 2 SQL](./docs/FASE2_MIGRATIONS.md)
-- [Fase 3 Repartidores](./docs/FASE3_DRIVERS.md)
-- [Fase 4 Despacho](./docs/FASE4_DISPATCH.md)
+- [Checklist go-live](./docs/GO_LIVE_CHECKLIST.md)
+- [Fase 10 Producción](./docs/FASE10_PRODUCTION.md)
+- Fases: `docs/FASE2_*.md` … `docs/FASE10_*.md`
 
-## Requisitos
-
-- Node.js 20+
-- [pnpm](https://pnpm.io/) 9+
-- Mismas credenciales Supabase que El Pollón (`.env` del sitio)
-
-## Arranque rápido (Admin)
+## Arranque admin
 
 ```powershell
 cd "c:\APP POLLON\polldriver"
 pnpm install
 copy .env.example apps\admin-web\.env.local
-# Edita apps\admin-web\.env.local con VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
 pnpm dev:admin
 ```
 
-Abre http://localhost:5174
+http://localhost:5174 · Privacidad: `/privacidad`
 
-## SQL (obligatorio antes de despacho real)
+## Móvil
 
-En Supabase SQL Editor, ejecuta en orden:
+Ver `apps/driver-mobile/README.md` y `docs/FASE10_PRODUCTION.md`.
 
-1. `supabase/migrations/001_pd_branch_extensions.sql`
-2. `supabase/migrations/002_pd_driver_core.sql`
-3. `supabase/migrations/003_pd_delivery_jobs.sql`
-4. `supabase/migrations/004_pd_location.sql`
-5. `supabase/migrations/005_pd_rls.sql`
+## Tests
+
+```powershell
+pnpm test
+```
+
+## SQL
+
+Ejecutar `supabase/migrations/001` → `017` en Supabase SQL Editor.  
+Guía: [FASE2](./docs/FASE2_MIGRATIONS.md) + checklist go-live.
 
 ## Fases
 
 | Fase | Estado |
 |------|--------|
-| 0 Plan | ✅ |
-| 1 Monorepo + admin shell | ✅ |
-| 2 Migraciones + RLS + sync | ✅ |
-| 3 Registro/aprobación repartidor | ✅ |
-| 4 Adapter Realtime + ofertas | ✅ |
-| 5 Accept concurrente | ✅ |
-| 6 GPS + mapa MapLibre | ✅ |
-| 7 Pickup / entrega | ✅ |
-| 8 Tarifas / cotización | ✅ |
-| 9 Reportes dashboard | ✅ |
-| 10 | Pendiente |
+| 0–9 | ✅ |
+| 10 Producción | ✅ scaffold EAS + privacidad + tests + checklist |
 
-Guía SQL: [docs/FASE2_MIGRATIONS.md](./docs/FASE2_MIGRATIONS.md)
+## Rollback
 
-## GPS
-
-Celular → Supabase Realtime Broadcast → MapLibre en admin.  
-Detalle en el plan §2.
+`UPDATE branches SET polldriver_enabled = false;`

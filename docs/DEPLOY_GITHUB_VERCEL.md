@@ -9,7 +9,7 @@
 | Código | GitHub `APP-POLLDRIVER` (ya subido) |
 | Admin web | **Vercel** (SPA Vite) |
 | Base de datos | **Mismo Supabase** que El Pollón |
-| SQL `pd_*` | Pegar en Supabase SQL Editor (001→011) |
+| SQL `pd_*` | Pegar en Supabase SQL Editor (001→017) |
 
 ---
 
@@ -55,7 +55,9 @@ Si el proyecto está conectado a GitHub, Vercel redespliega solo.
 
 - [ ] URL de Vercel abre el login  
 - [ ] `/postular` carga  
-- [ ] SQL 001→011 en Supabase  
-- [ ] En Auth → Redirect URLs: agregar el dominio `*.vercel.app` si usas links de correo  
+- [ ] SQL 001→017 en Supabase  
+- [ ] `/privacidad` carga  
+- [ ] En Auth → Redirect URLs: agregar dominio Vercel  
+- [ ] Checklist: `docs/GO_LIVE_CHECKLIST.md` 
 
 **No** subas `SUPABASE_SERVICE_ROLE_KEY` ni contraseñas a Vercel.

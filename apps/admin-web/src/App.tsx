@@ -9,6 +9,7 @@ import { ApplyPage } from './pages/ApplyPage';
 import { DriverOffersPage } from './pages/DriverOffersPage';
 import { PricingPage } from './pages/PricingPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 
 export function App() {
   return (
@@ -17,6 +18,7 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/postular" element={<ApplyPage />} />
+          <Route path="/privacidad" element={<PrivacyPage />} />
           <Route element={<AppShell />}>
             <Route index element={<DispatchHomePage />} />
             <Route path="mapa" element={<LiveMapPage />} />

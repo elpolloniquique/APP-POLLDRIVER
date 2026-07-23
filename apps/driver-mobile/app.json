@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "PollDriver",
+    "slug": "polldriver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#c00000"
+    },
+    "android": {
+      "package": "cl.elpollon.polldriver",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#c00000"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "cl.elpollon.polldriver",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PollDriver usa tu ubicación para mostrar tu posición al despacho mientras entregas pedidos.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "PollDriver puede seguir tu ubicación en segundo plano solo durante entregas activas."
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir a PollDriver usar tu ubicación para el seguimiento de entregas."
+        }
+      ]
+    ]
+  }
+}

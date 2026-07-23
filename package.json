@@ -6,10 +6,16 @@
   "scripts": {
     "dev:admin": "pnpm --filter @polldriver/admin-web dev",
     "build:admin": "pnpm --filter @polldriver/admin-web build",
-    "typecheck": "pnpm -r typecheck"
+    "dev:mobile": "pnpm --filter @polldriver/driver-mobile start",
+    "typecheck": "pnpm --filter @polldriver/admin-web typecheck && pnpm --filter @polldriver/shared-types typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "vitest": "^3.0.5"
+  }
 }
