@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { Bell, MapPin, Package, Users, LogOut, CircleDollarSign } from 'lucide-react';
+import { Bell, MapPin, Package, Users, LogOut, CircleDollarSign, BarChart3 } from 'lucide-react';
 import { isStaffRole, useAuth } from '../context/AuthContext';
 
 const DRIVER_ROLES = new Set(['delivery', 'repartidor']);
@@ -39,6 +39,9 @@ export function AppShell() {
             <>
               <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/">
                 <Package className="h-4 w-4" /> Despacho
+              </Link>
+              <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/reportes">
+                <BarChart3 className="h-4 w-4" /> Reportes
               </Link>
               <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/tarifas">
                 <CircleDollarSign className="h-4 w-4" /> Tarifas

@@ -62,7 +62,8 @@ En Supabase SQL Editor, ejecuta en orden:
 | 6 GPS + mapa MapLibre | ✅ |
 | 7 Pickup / entrega | ✅ |
 | 8 Tarifas / cotización | ✅ |
-| 9–10 | Pendiente |
+| 9 Reportes dashboard | ✅ |
+| 10 | Pendiente |
 
 Guía SQL: [docs/FASE2_MIGRATIONS.md](./docs/FASE2_MIGRATIONS.md)
 

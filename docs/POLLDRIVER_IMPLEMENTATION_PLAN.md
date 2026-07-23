@@ -197,7 +197,7 @@ Todas **aditivas**. Nunca `DROP` de tablas El Pollón.
 | **6** | GPS + mapa | ✅ MapLibre + upsert GPS + Broadcast (SQL 013) |
 | **7** | Pickup/entrega | ✅ `en_delivery` / `entregado` (SQL 014 + UI) |
 | **8** | Tarifas | ✅ cotización `pd_pricing_rules` sin tocar `delivery_cost` TEXT |
-| **9** | Reportes | Dashboard despacho |
+| **9** | Reportes | ✅ dashboard `/reportes` + `pd_dispatch_report` (SQL 016) |
 | **10** | Producción | EAS APK + privacidad + tests |
 
 ---
@@ -241,4 +241,4 @@ El resto de decisiones las toma este plan.
 
 ## 13. Siguiente paso inmediato
 
-**Fase 9:** reportes / dashboard de despacho.
+**Fase 10:** producción (EAS APK móvil, privacidad, tests, checklist go-live).

@@ -8,6 +8,7 @@ import { DriversPage } from './pages/DriversPage';
 import { ApplyPage } from './pages/ApplyPage';
 import { DriverOffersPage } from './pages/DriverOffersPage';
 import { PricingPage } from './pages/PricingPage';
+import { ReportsPage } from './pages/ReportsPage';
 
 export function App() {
   return (
@@ -22,6 +23,7 @@ export function App() {
             <Route path="repartidores" element={<DriversPage />} />
             <Route path="ofertas" element={<DriverOffersPage />} />
             <Route path="tarifas" element={<PricingPage />} />
+            <Route path="reportes" element={<ReportsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
