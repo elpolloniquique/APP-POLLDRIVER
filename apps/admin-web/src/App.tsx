@@ -2,7 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LoginPage } from './pages/LoginPage';
 import { AppShell } from './pages/AppShell';
-import { DispatchHomePage, MapPlaceholderPage } from './pages/DispatchPages';
+import { DispatchHomePage } from './pages/DispatchPages';
+import { LiveMapPage } from './pages/LiveMapPage';
 import { DriversPage } from './pages/DriversPage';
 import { ApplyPage } from './pages/ApplyPage';
 import { DriverOffersPage } from './pages/DriverOffersPage';
@@ -16,7 +17,7 @@ export function App() {
           <Route path="/postular" element={<ApplyPage />} />
           <Route element={<AppShell />}>
             <Route index element={<DispatchHomePage />} />
-            <Route path="mapa" element={<MapPlaceholderPage />} />
+            <Route path="mapa" element={<LiveMapPage />} />
             <Route path="repartidores" element={<DriversPage />} />
             <Route path="ofertas" element={<DriverOffersPage />} />
           </Route>

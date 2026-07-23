@@ -268,17 +268,3 @@ export function DispatchHomePage() {
     </div>
   );
 }
-
-export function MapPlaceholderPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Mapa en vivo</h1>
-      <p className="mt-2 max-w-xl text-sm text-gray-500">
-        Fase 6: MapLibre + <code>pd_driver_location_latest</code> + Realtime Broadcast.
-      </p>
-      <div className="mt-6 flex h-80 items-center justify-center rounded-2xl bg-gray-900 text-sm text-white/70">
-        Mapa MapLibre — pendiente Fase 6
-      </div>
-    </div>
-  );
-}

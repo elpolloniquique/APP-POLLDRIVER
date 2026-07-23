@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   acceptOffer,
   friendlyOfferError,
@@ -12,6 +12,11 @@ import {
   type MyOfferRow,
 } from '../lib/dispatch';
 import { getSupabase } from '../lib/supabase';
+import {
+  startBrowserGpsTracking,
+  stopDriverBroadcast,
+  upsertMyLocation,
+} from '../lib/location';
 
 function useNowTick(ms = 1000) {
   const [now, setNow] = useState(() => Date.now());
@@ -46,6 +51,11 @@ export function DriverOffersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
   const [flash, setFlash] = useState(false);
+  const [sharingGps, setSharingGps] = useState(false);
+  const [lastGps, setLastGps] = useState<string | null>(null);
+  const stopGpsRef = useRef<(() => void) | null>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -91,8 +101,51 @@ export function DriverOffersPage() {
       .subscribe();
     return () => {
       void sb.removeChannel(ch);
+      stopGpsRef.current?.();
+      stopGpsRef.current = null;
+      stopDriverBroadcast();
     };
   }, [load]);
+
+  const toggleGps = (on: boolean) => {
+    setError('');
+    stopGpsRef.current?.();
+    stopGpsRef.current = null;
+    if (!on) {
+      setSharingGps(false);
+      stopDriverBroadcast();
+      setMsg('GPS detenido');
+      return;
+    }
+    const assignmentId = active[0]?.id ?? null;
+    stopGpsRef.current = startBrowserGpsTracking(
+      (coords) => {
+        void upsertMyLocation({
+          lat: coords.latitude,
+          lng: coords.longitude,
+          accuracy: coords.accuracy,
+          heading: coords.heading,
+          speed: coords.speed,
+          assignmentId: activeRef.current[0]?.id ?? assignmentId,
+        })
+          .then((r) => {
+            if (!r.skipped) {
+              setLastGps(new Date().toLocaleTimeString('es-CL'));
+              setSharingGps(true);
+            }
+          })
+          .catch((e) => {
+            setError(e instanceof Error ? e.message : 'Error GPS');
+          });
+      },
+      (msgErr) => {
+        setError(msgErr);
+        setSharingGps(false);
+      },
+    );
+    setSharingGps(true);
+    setMsg('Compartiendo GPS (cada ~8s). Visible en Mapa en vivo.');
+  };
 
   const isOnline =
     summary.operationalStatus === 'available' ||
@@ -152,6 +205,15 @@ export function DriverOffersPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
+              sharingGps ? 'bg-sky-600 text-white' : 'bg-white ring-1 ring-black/10'
+            }`}
+            onClick={() => toggleGps(!sharingGps)}
+          >
+            {sharingGps ? `GPS on${lastGps ? ` · ${lastGps}` : ''}` : 'Compartir GPS'}
+          </button>
           <button
             type="button"
             className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
