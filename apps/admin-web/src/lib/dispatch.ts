@@ -14,6 +14,9 @@ export interface DispatchJob extends PdDeliveryJob {
   updatedAt?: string;
   pendingOffers: number;
   offers: JobOfferSummary[];
+  deliveryFeeQuoted?: number | null;
+  deliveryDistanceKm?: number | null;
+  deliveryFeeSource?: string;
 }
 
 function mapJob(row: Record<string, unknown>): PdDeliveryJob {
@@ -65,6 +68,15 @@ export async function listDispatchJobs(): Promise<DispatchJob[]> {
         updatedAt: String((r as Record<string, unknown>).updated_at || ''),
         pendingOffers: 0,
         offers: [],
+        deliveryFeeQuoted:
+          (r as Record<string, unknown>).delivery_fee_quoted != null
+            ? Number((r as Record<string, unknown>).delivery_fee_quoted)
+            : null,
+        deliveryDistanceKm:
+          (r as Record<string, unknown>).delivery_distance_km != null
+            ? Number((r as Record<string, unknown>).delivery_distance_km)
+            : null,
+        deliveryFeeSource: String((r as Record<string, unknown>).delivery_fee_source || ''),
       }));
     }
     throw error;
@@ -94,6 +106,9 @@ export async function listDispatchJobs(): Promise<DispatchJob[]> {
       updatedAt: String(raw.updated_at || ''),
       pendingOffers,
       offers,
+      deliveryFeeQuoted: raw.delivery_fee_quoted != null ? Number(raw.delivery_fee_quoted) : null,
+      deliveryDistanceKm: raw.delivery_distance_km != null ? Number(raw.delivery_distance_km) : null,
+      deliveryFeeSource: String(raw.delivery_fee_source || ''),
     };
   });
 }

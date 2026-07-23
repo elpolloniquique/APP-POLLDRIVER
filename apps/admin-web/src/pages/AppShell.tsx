@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { Bell, MapPin, Package, Users, LogOut } from 'lucide-react';
+import { Bell, MapPin, Package, Users, LogOut, CircleDollarSign } from 'lucide-react';
 import { isStaffRole, useAuth } from '../context/AuthContext';
 
 const DRIVER_ROLES = new Set(['delivery', 'repartidor']);
@@ -22,7 +22,6 @@ export function AppShell() {
 
   const isDriver = DRIVER_ROLES.has(profile.role);
 
-  // Repartidor: home = ofertas (no el panel de cocina)
   if (isDriver && location.pathname === '/') {
     return <Navigate to="/ofertas" replace />;
   }
@@ -37,9 +36,14 @@ export function AppShell() {
         </div>
         <nav className="flex-1 space-y-1 p-2 text-sm">
           {!isDriver && (
-            <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/">
-              <Package className="h-4 w-4" /> Despacho
-            </Link>
+            <>
+              <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/">
+                <Package className="h-4 w-4" /> Despacho
+              </Link>
+              <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/tarifas">
+                <CircleDollarSign className="h-4 w-4" /> Tarifas
+              </Link>
+            </>
           )}
           <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/ofertas">
             <Bell className="h-4 w-4" /> Mis ofertas

@@ -196,7 +196,7 @@ Todas **aditivas**. Nunca `DROP` de tablas El Pollón.
 | **5** | Ofertas + accept | ✅ un solo ganador (SQL 012 + UX `/ofertas`) |
 | **6** | GPS + mapa | ✅ MapLibre + upsert GPS + Broadcast (SQL 013) |
 | **7** | Pickup/entrega | ✅ `en_delivery` / `entregado` (SQL 014 + UI) |
-| **8** | Tarifas | Cotización sin romper `delivery_cost` TEXT |
+| **8** | Tarifas | ✅ cotización `pd_pricing_rules` sin tocar `delivery_cost` TEXT |
 | **9** | Reportes | Dashboard despacho |
 | **10** | Producción | EAS APK + privacidad + tests |
 
@@ -241,4 +241,4 @@ El resto de decisiones las toma este plan.
 
 ## 13. Siguiente paso inmediato
 
-**Fase 8:** tarifas / cotización delivery (sin romper `delivery_cost` TEXT).
+**Fase 9:** reportes / dashboard de despacho.

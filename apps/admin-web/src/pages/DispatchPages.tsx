@@ -16,6 +16,7 @@ import {
   type ActiveAssignmentRow,
   type DispatchJob,
 } from '../lib/dispatch';
+import { applyQuoteToJob, formatClp } from '../lib/pricing';
 import { countJobsByStatus } from '../lib/jobs';
 import { getSupabase } from '../lib/supabase';
 
@@ -177,6 +178,24 @@ export function DispatchHomePage() {
     }
   };
 
+  const onQuoteJob = async (jobId: string) => {
+    setBusyId(jobId);
+    setMsg('');
+    try {
+      const q = await applyQuoteToJob(jobId);
+      if (q.ok === false) {
+        setError(String(q.message || 'Fuera de cobertura'));
+      } else {
+        setMsg(`Cotización: ${formatClp(Number(q.fee))} (${String(q.source || '')})`);
+      }
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error cotización');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const canOffer = (s: string) =>
     ['ready_for_dispatch', 'searching_driver', 'offered', 'pending_prep'].includes(s);
 
@@ -287,6 +306,13 @@ export function DispatchHomePage() {
                     {j.lastError && (
                       <p className="mt-1 text-xs text-amber-700">{j.lastError}</p>
                     )}
+                    {(j.deliveryFeeQuoted != null || j.deliveryFeeSource) && (
+                      <p className="mt-1 text-xs font-medium text-emerald-700">
+                        Tarifa {formatClp(j.deliveryFeeQuoted)}
+                        {j.deliveryDistanceKm != null ? ` · ${j.deliveryDistanceKm} km` : ''}
+                        {j.deliveryFeeSource ? ` · ${j.deliveryFeeSource}` : ''}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -294,6 +320,16 @@ export function DispatchHomePage() {
                     >
                       {STATUS_LABEL[j.status] || j.status}
                     </span>
+                    {j.branchId && (
+                      <button
+                        type="button"
+                        className="rounded-xl bg-white px-3 py-1.5 text-xs font-bold ring-1 ring-black/10"
+                        disabled={busyId === j.id}
+                        onClick={() => void onQuoteJob(j.id)}
+                      >
+                        Cotizar
+                      </button>
+                    )}
                     {canOffer(j.status) && (
                       <button
                         type="button"
