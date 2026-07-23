@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   acceptOffer,
+  confirmDelivery,
+  confirmPickup,
   friendlyOfferError,
   getMyDriverSummary,
   listMyActiveAssignments,
   listMyPendingOffers,
+  markHeadingToBranch,
   rejectOffer,
   setMyOperationalStatus,
   type ActiveAssignmentRow,
@@ -195,6 +198,56 @@ export function DriverOffersPage() {
     }
   };
 
+  const onHeading = async (assignmentId: string) => {
+    setBusyId(assignmentId);
+    setError('');
+    try {
+      await markHeadingToBranch(assignmentId);
+      setMsg('En camino al local');
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? friendlyOfferError(e.message) : 'Error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onPickup = async (assignmentId: string) => {
+    setBusyId(assignmentId);
+    setError('');
+    try {
+      const res = await confirmPickup(assignmentId);
+      setMsg(
+        res.already
+          ? 'Retiro ya registrado · pedido en_delivery'
+          : 'Retiro OK · El Pollón pasó a en_delivery',
+      );
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? friendlyOfferError(e.message) : 'No se pudo confirmar retiro');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onDeliver = async (assignmentId: string) => {
+    setBusyId(assignmentId);
+    setError('');
+    try {
+      const res = await confirmDelivery(assignmentId);
+      setMsg(
+        res.already
+          ? 'Entrega ya registrada'
+          : 'Entregado · El Pollón pasó a entregado',
+      );
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? friendlyOfferError(e.message) : 'No se pudo confirmar entrega');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -332,18 +385,84 @@ export function DriverOffersPage() {
         {!active.length ? (
           <p className="text-sm text-gray-400">Ninguno asignado todavía.</p>
         ) : (
-          <ul className="space-y-2">
-            {active.map((a) => (
-              <li
-                key={a.id}
-                className="rounded-2xl bg-white px-5 py-4 text-sm shadow-sm ring-1 ring-black/5"
-              >
-                <p className="font-bold">#{a.job.ticketCode || a.job.id.slice(0, 8)}</p>
-                <p className="text-xs text-gray-500">
-                  {a.job.customerAddress} · {a.job.status}
-                </p>
-              </li>
-            ))}
+          <ul className="space-y-3">
+            {active.map((a) => {
+              const picked = Boolean(a.pickedUpAt) || ['picked_up', 'delivering'].includes(a.job.status);
+              const canHead = ['assigned'].includes(a.job.status);
+              return (
+                <li
+                  key={a.id}
+                  className="rounded-2xl bg-white px-5 py-4 text-sm shadow-sm ring-1 ring-black/5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-lg font-bold">
+                        #{a.job.ticketCode || a.job.id.slice(0, 8)}
+                      </p>
+                      <p className="text-gray-600">
+                        {a.job.customerName} · {a.job.customerAddress}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {a.job.status}
+                        {a.job.customerPhone ? ` · ${a.job.customerPhone}` : ''}
+                        {a.job.orderTotal
+                          ? ` · $${Math.round(a.job.orderTotal).toLocaleString('es-CL')}`
+                          : ''}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        picked ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-900'
+                      }`}
+                    >
+                      {picked ? 'En ruta' : 'Ir al local'}
+                    </span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {canHead && (
+                      <button
+                        type="button"
+                        className="rounded-xl bg-indigo-100 px-3 py-2 text-xs font-bold text-indigo-900"
+                        disabled={busyId === a.id}
+                        onClick={() => void onHeading(a.id)}
+                      >
+                        Voy al local
+                      </button>
+                    )}
+                    {!picked && (
+                      <button
+                        type="button"
+                        className="pd-btn"
+                        disabled={busyId === a.id}
+                        onClick={() => void onPickup(a.id)}
+                      >
+                        {busyId === a.id ? '…' : 'Retiré en local'}
+                      </button>
+                    )}
+                    {picked && (
+                      <button
+                        type="button"
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                        disabled={busyId === a.id}
+                        onClick={() => void onDeliver(a.id)}
+                      >
+                        {busyId === a.id ? '…' : 'Entregué al cliente'}
+                      </button>
+                    )}
+                    {a.job.customerPhone && (
+                      <a
+                        className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700"
+                        href={`https://wa.me/56${a.job.customerPhone.replace(/\D/g, '').replace(/^56/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

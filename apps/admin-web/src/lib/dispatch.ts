@@ -234,6 +234,7 @@ export async function getMyDriverSummary(): Promise<DriverSummary> {
 export interface ActiveAssignmentRow {
   id: string;
   assignedAt: string;
+  pickedUpAt: string | null;
   job: {
     id: string;
     ticketCode: string;
@@ -242,6 +243,7 @@ export interface ActiveAssignmentRow {
     customerPhone: string;
     orderTotal: number;
     status: string;
+    sourceOrderId?: string;
   };
 }
 
@@ -251,9 +253,9 @@ export async function listMyActiveAssignments(): Promise<ActiveAssignmentRow[]> 
   const { data, error } = await sb
     .from('pd_delivery_assignments')
     .select(`
-      id, assigned_at, status,
+      id, assigned_at, picked_up_at, status,
       pd_delivery_jobs (
-        id, ticket_code, customer_name, customer_address, customer_phone, order_total, status
+        id, ticket_code, customer_name, customer_address, customer_phone, order_total, status, source_order_id
       )
     `)
     .eq('status', 'active')
@@ -268,6 +270,7 @@ export async function listMyActiveAssignments(): Promise<ActiveAssignmentRow[]> 
     return {
       id: String(row.id),
       assignedAt: String(row.assigned_at || ''),
+      pickedUpAt: row.picked_up_at ? String(row.picked_up_at) : null,
       job: {
         id: String(j?.id || ''),
         ticketCode: String(j?.ticket_code || ''),
@@ -276,9 +279,57 @@ export async function listMyActiveAssignments(): Promise<ActiveAssignmentRow[]> 
         customerPhone: String(j?.customer_phone || ''),
         orderTotal: Number(j?.order_total) || 0,
         status: String(j?.status || ''),
+        sourceOrderId: j?.source_order_id ? String(j.source_order_id) : undefined,
       },
     };
   });
+}
+
+async function optionalGps(): Promise<{ lat: number; lng: number } | null> {
+  if (!navigator.geolocation) return null;
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 },
+    );
+  });
+}
+
+export async function confirmPickup(assignmentId: string) {
+  const sb = getSupabase();
+  if (!sb) throw new Error('Supabase no configurado');
+  const gps = await optionalGps();
+  const { data, error } = await sb.rpc('pd_confirm_pickup', {
+    p_assignment_id: assignmentId,
+    p_lat: gps?.lat ?? null,
+    p_lng: gps?.lng ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as { ok: boolean; estado?: string; already?: boolean };
+}
+
+export async function confirmDelivery(assignmentId: string) {
+  const sb = getSupabase();
+  if (!sb) throw new Error('Supabase no configurado');
+  const gps = await optionalGps();
+  const { data, error } = await sb.rpc('pd_confirm_delivery', {
+    p_assignment_id: assignmentId,
+    p_lat: gps?.lat ?? null,
+    p_lng: gps?.lng ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as { ok: boolean; estado?: string; already?: boolean };
+}
+
+export async function markHeadingToBranch(assignmentId: string) {
+  const sb = getSupabase();
+  if (!sb) throw new Error('Supabase no configurado');
+  const { data, error } = await sb.rpc('pd_mark_heading_to_branch', {
+    p_assignment_id: assignmentId,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 /** Mensaje amigable para errores de carrera / accept */
@@ -290,5 +341,11 @@ export function friendlyOfferError(message: string): string {
   if (m.includes('expir')) return 'La oferta expiró. Espera la siguiente.';
   if (m.includes('capacidad')) return 'Ya tienes el máximo de pedidos activos.';
   if (m.includes('aprobada')) return 'Tu cuenta aún no está aprobada.';
+  if (m.includes('retiro') || m.includes('antes de entregar')) {
+    return 'Primero confirma el retiro en el local.';
+  }
+  if (m.includes('listo para retiro')) {
+    return 'Este pedido aún no está listo para retirar.';
+  }
   return message;
 }

@@ -6,9 +6,14 @@ import {
 } from '@polldriver/shared-types';
 import { useAuth } from '../context/AuthContext';
 import {
+  confirmDelivery,
+  confirmPickup,
   expireStaleOffers,
+  friendlyOfferError,
   listDispatchJobs,
+  listMyActiveAssignments,
   startDriverSearch,
+  type ActiveAssignmentRow,
   type DispatchJob,
 } from '../lib/dispatch';
 import { countJobsByStatus } from '../lib/jobs';
@@ -53,27 +58,34 @@ export function DispatchHomePage() {
   const [readyCount, setReadyCount] = useState(0);
   const [routeCount, setRouteCount] = useState(0);
   const [jobs, setJobs] = useState<DispatchJob[]>([]);
+  const [assignments, setAssignments] = useState<ActiveAssignmentRow[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [schemaReady, setSchemaReady] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [livePulse, setLivePulse] = useState(false);
   const [lastEventAt, setLastEventAt] = useState<string | null>(null);
+  const [msg, setMsg] = useState('');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError('');
     try {
       await expireStaleOffers().catch(() => undefined);
-      const [counts, list] = await Promise.all([countJobsByStatus(), listDispatchJobs()]);
+      const [counts, list, asg] = await Promise.all([
+        countJobsByStatus(),
+        listDispatchJobs(),
+        listMyActiveAssignments().catch(() => [] as ActiveAssignmentRow[]),
+      ]);
       setReadyCount(READY.reduce((n, s) => n + (counts[s] || 0), 0));
       setRouteCount(EN_ROUTE.reduce((n, s) => n + (counts[s] || 0), 0));
       setJobs(list.slice(0, 25));
+      setAssignments(asg);
       setSchemaReady(true);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al cargar jobs';
-      setError(msg);
-      if (/does not exist|schema cache/i.test(msg)) setSchemaReady(false);
+      const msgErr = e instanceof Error ? e.message : 'Error al cargar jobs';
+      setError(msgErr);
+      if (/does not exist|schema cache/i.test(msgErr)) setSchemaReady(false);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -135,6 +147,36 @@ export function DispatchHomePage() {
     }
   };
 
+  const assignmentForJob = (jobId: string) => assignments.find((a) => a.job.id === jobId);
+
+  const onStaffPickup = async (assignmentId: string) => {
+    setBusyId(assignmentId);
+    setMsg('');
+    try {
+      await confirmPickup(assignmentId);
+      setMsg('Retiro confirmado → pedidos.estado = en_delivery');
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? friendlyOfferError(e.message) : 'Error retiro');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onStaffDeliver = async (assignmentId: string) => {
+    setBusyId(assignmentId);
+    setMsg('');
+    try {
+      await confirmDelivery(assignmentId);
+      setMsg('Entrega confirmada → pedidos.estado = entregado');
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? friendlyOfferError(e.message) : 'Error entrega');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const canOffer = (s: string) =>
     ['ready_for_dispatch', 'searching_driver', 'offered', 'pending_prep'].includes(s);
 
@@ -174,6 +216,9 @@ export function DispatchHomePage() {
       {error && schemaReady && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
       )}
+      {msg && (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{msg}</p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
@@ -209,7 +254,12 @@ export function DispatchHomePage() {
           </p>
         ) : (
           <ul className="mt-3 divide-y">
-            {jobs.map((j) => (
+            {jobs.map((j) => {
+              const asg = assignmentForJob(j.id);
+              const picked =
+                Boolean(asg?.pickedUpAt) ||
+                ['picked_up', 'delivering'].includes(j.status);
+              return (
               <li key={j.id} className="py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -258,10 +308,31 @@ export function DispatchHomePage() {
                             : 'Buscar repartidor'}
                       </button>
                     )}
+                    {asg && !picked && (
+                      <button
+                        type="button"
+                        className="rounded-xl bg-indigo-100 px-3 py-1.5 text-xs font-bold text-indigo-900"
+                        disabled={busyId === asg.id}
+                        onClick={() => void onStaffPickup(asg.id)}
+                      >
+                        Confirmar retiro
+                      </button>
+                    )}
+                    {asg && picked && (
+                      <button
+                        type="button"
+                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white"
+                        disabled={busyId === asg.id}
+                        onClick={() => void onStaffDeliver(asg.id)}
+                      >
+                        Confirmar entrega
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

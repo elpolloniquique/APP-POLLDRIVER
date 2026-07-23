@@ -195,7 +195,7 @@ Todas **aditivas**. Nunca `DROP` de tablas El Pollón.
 | **4** | Adapter Realtime | ✅ job + auto-oferta al pasar a `preparando` (SQL 011) |
 | **5** | Ofertas + accept | ✅ un solo ganador (SQL 012 + UX `/ofertas`) |
 | **6** | GPS + mapa | ✅ MapLibre + upsert GPS + Broadcast (SQL 013) |
-| **7** | Pickup/entrega | `en_delivery` / `entregado` en El Pollón |
+| **7** | Pickup/entrega | ✅ `en_delivery` / `entregado` (SQL 014 + UI) |
 | **8** | Tarifas | Cotización sin romper `delivery_cost` TEXT |
 | **9** | Reportes | Dashboard despacho |
 | **10** | Producción | EAS APK + privacidad + tests |
@@ -241,4 +241,4 @@ El resto de decisiones las toma este plan.
 
 ## 13. Siguiente paso inmediato
 
-**Fase 7:** pickup / entrega → `en_delivery` / `entregado` en El Pollón.
+**Fase 8:** tarifas / cotización delivery (sin romper `delivery_cost` TEXT).

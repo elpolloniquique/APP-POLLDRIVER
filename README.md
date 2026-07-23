@@ -60,7 +60,8 @@ En Supabase SQL Editor, ejecuta en orden:
 | 4 Adapter Realtime + ofertas | ✅ |
 | 5 Accept concurrente | ✅ |
 | 6 GPS + mapa MapLibre | ✅ |
-| 7–10 | Pendiente |
+| 7 Pickup / entrega | ✅ |
+| 8–10 | Pendiente |
 
 Guía SQL: [docs/FASE2_MIGRATIONS.md](./docs/FASE2_MIGRATIONS.md)
 
