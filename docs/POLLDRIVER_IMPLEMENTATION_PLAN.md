@@ -193,7 +193,7 @@ Todas **aditivas**. Nunca `DROP` de tablas El Pollón.
 | **2** | Migraciones + RLS | ✅ SQL 001–009 + verify despacho lee `pd_delivery_jobs` |
 | **3** | Registro/aprobación repartidor | ✅ `/postular` + admin + SQL 010 → `role=delivery` |
 | **4** | Adapter Realtime | ✅ job + auto-oferta al pasar a `preparando` (SQL 011) |
-| **5** | Ofertas + accept | Un solo ganador concurrente |
+| **5** | Ofertas + accept | ✅ un solo ganador (SQL 012 + UX `/ofertas`) |
 | **6** | GPS + mapa | Marcador live tras aceptar |
 | **7** | Pickup/entrega | `en_delivery` / `entregado` en El Pollón |
 | **8** | Tarifas | Cotización sin romper `delivery_cost` TEXT |
@@ -241,4 +241,4 @@ El resto de decisiones las toma este plan.
 
 ## 13. Siguiente paso inmediato
 
-**Fase 5:** ofertas concurrentes (accept race) + UX repartidor (móvil o inbox robusto).
+**Fase 6:** GPS + mapa MapLibre en vivo.

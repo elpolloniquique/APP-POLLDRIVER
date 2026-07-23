@@ -180,7 +180,7 @@ export async function acceptOffer(offerId: string) {
   const { data, error } = await sb.rpc('pd_accept_delivery_offer', {
     p_offer_id: offerId,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyOfferError(error.message));
   return data;
 }
 
@@ -201,4 +201,94 @@ export async function setMyOperationalStatus(status: string) {
     p_status: status,
   });
   if (error) throw new Error(error.message);
+}
+
+export interface DriverSummary {
+  ok: boolean;
+  adminStatus?: string;
+  operationalStatus?: string;
+  maxOrders?: number;
+  activeOrders?: number;
+  capacityLeft?: number;
+}
+
+export async function getMyDriverSummary(): Promise<DriverSummary> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false };
+  const { data, error } = await sb.rpc('pd_my_driver_summary');
+  if (error) {
+    if (/does not exist|schema cache/i.test(error.message)) return { ok: false };
+    throw new Error(error.message);
+  }
+  const row = data as Record<string, unknown>;
+  return {
+    ok: row.ok === true,
+    adminStatus: row.admin_status ? String(row.admin_status) : undefined,
+    operationalStatus: row.operational_status ? String(row.operational_status) : undefined,
+    maxOrders: Number(row.max_orders) || 0,
+    activeOrders: Number(row.active_orders) || 0,
+    capacityLeft: Number(row.capacity_left) || 0,
+  };
+}
+
+export interface ActiveAssignmentRow {
+  id: string;
+  assignedAt: string;
+  job: {
+    id: string;
+    ticketCode: string;
+    customerName: string;
+    customerAddress: string;
+    customerPhone: string;
+    orderTotal: number;
+    status: string;
+  };
+}
+
+export async function listMyActiveAssignments(): Promise<ActiveAssignmentRow[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from('pd_delivery_assignments')
+    .select(`
+      id, assigned_at, status,
+      pd_delivery_jobs (
+        id, ticket_code, customer_name, customer_address, customer_phone, order_total, status
+      )
+    `)
+    .eq('status', 'active')
+    .order('assigned_at', { ascending: false });
+  if (error) {
+    if (/does not exist|schema cache/i.test(error.message)) return [];
+    throw error;
+  }
+  return (data || []).map((row) => {
+    const jRaw = row.pd_delivery_jobs as Record<string, unknown> | Record<string, unknown>[] | null;
+    const j = Array.isArray(jRaw) ? jRaw[0] : jRaw;
+    return {
+      id: String(row.id),
+      assignedAt: String(row.assigned_at || ''),
+      job: {
+        id: String(j?.id || ''),
+        ticketCode: String(j?.ticket_code || ''),
+        customerName: String(j?.customer_name || ''),
+        customerAddress: String(j?.customer_address || ''),
+        customerPhone: String(j?.customer_phone || ''),
+        orderTotal: Number(j?.order_total) || 0,
+        status: String(j?.status || ''),
+      },
+    };
+  });
+}
+
+/** Mensaje amigable para errores de carrera / accept */
+export function friendlyOfferError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('offer_already_taken') || m.includes('already_taken')) {
+    return 'Otro repartidor llegó primero. Esta oferta ya no está disponible.';
+  }
+  if (m.includes('expir')) return 'La oferta expiró. Espera la siguiente.';
+  if (m.includes('capacidad')) return 'Ya tienes el máximo de pedidos activos.';
+  if (m.includes('aprobada')) return 'Tu cuenta aún no está aprobada.';
+  return message;
 }

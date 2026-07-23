@@ -10,7 +10,8 @@ export function LoginPage() {
   const [err, setErr] = useState('');
 
   if (!loading && session && profile) {
-    return <Navigate to="/" replace />;
+    const isDriver = profile.role === 'delivery' || profile.role === 'repartidor';
+    return <Navigate to={isDriver ? '/ofertas' : '/'} replace />;
   }
 
   const onSubmit = async (e: FormEvent) => {

@@ -50,4 +50,4 @@ Si no hay elegibles: el job queda `ready_for_dispatch` con `last_error` y puedes
 
 ## Siguiente
 
-**Fase 5:** endurecer accept concurrente + UX móvil (un solo ganador bajo carga).
+**Fase 5:** endurecer accept concurrente + UX móvil (un solo ganador bajo carga) — ver `docs/FASE5_ACCEPT.md`.

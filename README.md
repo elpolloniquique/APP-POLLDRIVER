@@ -58,7 +58,8 @@ En Supabase SQL Editor, ejecuta en orden:
 | 2 Migraciones + RLS + sync | ✅ |
 | 3 Registro/aprobación repartidor | ✅ |
 | 4 Adapter Realtime + ofertas | ✅ |
-| 5–10 | Pendiente |
+| 5 Accept concurrente | ✅ |
+| 6–10 | Pendiente |
 
 Guía SQL: [docs/FASE2_MIGRATIONS.md](./docs/FASE2_MIGRATIONS.md)
 
