@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --pd-red: #c00000;
+  --pd-red-dark: #9a0000;
+  --pd-black: #111827;
+  --pd-cream: #faf7f2;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: Inter, system-ui, sans-serif;
+  background: var(--pd-cream);
+  color: var(--pd-black);
+}
+
+.pd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--pd-red);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  cursor: pointer;
+}
+.pd-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pd-btn:hover:not(:disabled) {
+  background: var(--pd-red-dark);
+}
+.pd-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  background: #fff;
+}
+.pd-input:focus {
+  outline: none;
+  border-color: rgb(192 0 0 / 0.4);
+  box-shadow: 0 0 0 3px rgb(192 0 0 / 0.1);
+}

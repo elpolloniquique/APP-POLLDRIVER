@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vercel
+apps/admin-web/.env.local
+apps/driver-mobile/.env
+.expo
+*.tsbuildinfo
