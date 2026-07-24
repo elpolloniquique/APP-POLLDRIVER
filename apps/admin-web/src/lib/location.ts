@@ -258,11 +258,38 @@ export function startBrowserGpsTracking(
   return () => navigator.geolocation.clearWatch(watchId);
 }
 
+/** Estilo con calles y nombres (gratis, sin API key) — OpenFreeMap Liberty */
+export const FALLBACK_STREET_STYLE_URL =
+  'https://tiles.openfreemap.org/styles/liberty';
+
+/**
+ * Estilo del mapa. Prioridad:
+ * 1) VITE_MAP_STYLE_URL (MapTiler streets-v2 + key válida)
+ * 2) OpenFreeMap Liberty (calles reales sin key)
+ */
 export function getMapStyleUrl(): string {
-  return (
-    import.meta.env.VITE_MAP_STYLE_URL ||
-    'https://demotiles.maplibre.org/style.json'
-  );
+  const raw = String(import.meta.env.VITE_MAP_STYLE_URL || '').trim();
+  if (
+    !raw ||
+    raw.includes('TU_API_KEY') ||
+    raw.includes('demotiles.maplibre.org')
+  ) {
+    return FALLBACK_STREET_STYLE_URL;
+  }
+  return raw;
+}
+
+/** Comprueba MapTiler; si la key falla, usa OpenFreeMap (calles con nombres). */
+export async function resolveMapStyleUrl(): Promise<string> {
+  const preferred = getMapStyleUrl();
+  if (!preferred.includes('maptiler.com')) return preferred;
+  try {
+    const res = await fetch(preferred);
+    if (!res.ok) return FALLBACK_STREET_STYLE_URL;
+    return preferred;
+  } catch {
+    return FALLBACK_STREET_STYLE_URL;
+  }
 }
 
 /** Centro por defecto: Iquique (El Pollón) */

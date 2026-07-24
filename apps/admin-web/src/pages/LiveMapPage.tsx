@@ -5,7 +5,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
-  getMapStyleUrl,
+  FALLBACK_STREET_STYLE_URL,
+  resolveMapStyleUrl,
   listBranchMapPoints,
   listLiveDriverLocations,
   subscribeLiveLocations,
@@ -110,27 +111,21 @@ export function LiveMapPage() {
     });
   }, [load, upsertLocal]);
 
-  // Init map + capa de rutas
+  // Init map + capa de rutas (valida MapTiler; si falla → OpenFreeMap con calles)
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    let cancelled = false;
+    let map: MapLibreMap | null = null;
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: getMapStyleUrl(),
-      center: DEFAULT_MAP_CENTER,
-      zoom: DEFAULT_MAP_ZOOM,
-    });
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-    map.on('load', () => {
-      if (!map.getSource(ROUTE_SOURCE)) {
-        map.addSource(ROUTE_SOURCE, {
+    const ensureRouteLayers = (m: MapLibreMap) => {
+      if (!m.getSource(ROUTE_SOURCE)) {
+        m.addSource(ROUTE_SOURCE, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
         });
       }
-      if (!map.getLayer(ROUTE_LAYER)) {
-        map.addLayer({
+      if (!m.getLayer(ROUTE_LAYER)) {
+        m.addLayer({
           id: ROUTE_LAYER,
           type: 'line',
           source: ROUTE_SOURCE,
@@ -142,17 +137,42 @@ export function LiveMapPage() {
           },
         });
       }
-    });
+    };
 
-    mapRef.current = map;
+    void (async () => {
+      const styleUrl = await resolveMapStyleUrl();
+      if (cancelled || !containerRef.current) return;
+
+      let usedFallback = styleUrl === FALLBACK_STREET_STYLE_URL;
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: styleUrl,
+        center: DEFAULT_MAP_CENTER,
+        zoom: DEFAULT_MAP_ZOOM,
+      });
+      map.addControl(new maplibregl.NavigationControl(), 'top-right');
+      map.on('load', () => ensureRouteLayers(map!));
+
+      map.on('error', () => {
+        if (usedFallback || !map) return;
+        usedFallback = true;
+        map.setStyle(FALLBACK_STREET_STYLE_URL);
+        map.once('load', () => ensureRouteLayers(map!));
+      });
+
+      mapRef.current = map;
+    })();
 
     return () => {
+      cancelled = true;
       abortRef.current?.abort();
       markersRef.current.forEach((m) => m.remove());
       markersRef.current.clear();
       branchMarkersRef.current.forEach((m) => m.remove());
       branchMarkersRef.current = [];
-      map.remove();
+      if (map) {
+        map.remove();
+      }
       mapRef.current = null;
     };
   }, []);
@@ -334,7 +354,8 @@ export function LiveMapPage() {
         <div>
           <h1 className="text-2xl font-bold">Mapa en vivo</h1>
           <p className="mt-1 text-sm text-gray-500">
-            MapLibre + MapTiler · ruta OSRM (km / ETA) · aviso por voz a ~{ETA_VOICE_MINUTES} min
+            Calles reales (MapTiler u OpenFreeMap) · ruta OSRM (km / ETA) · voz a ~{ETA_VOICE_MINUTES}{' '}
+            min
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
