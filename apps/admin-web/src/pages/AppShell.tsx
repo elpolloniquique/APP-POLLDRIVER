@@ -54,7 +54,7 @@ export function AppShell() {
           {!isDriver && (
             <>
               <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/mapa">
-                <MapPin className="h-4 w-4" /> Mapa en vivo
+                <MapPin className="h-4 w-4" /> Despacho en vivo
               </Link>
               <Link className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10" to="/repartidores">
                 <Users className="h-4 w-4" /> Repartidores
