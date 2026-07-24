@@ -23,6 +23,7 @@ APP POLLON/
 - [Fase 10 Producción](./docs/FASE10_PRODUCTION.md)
 - [Fase 11 Ruta / ETA / voz](./docs/FASE11_LIVE_ROUTE_VOICE.md)
 - [Live Tracking (plan profesional)](./docs/LIVE_TRACKING_IMPLEMENTATION_PLAN.md)
+- [Fases 5–6 Realtime + móvil](./docs/FASE5_6_REALTIME_MOBILE.md)
 - Fases: `docs/FASE2_*.md` … `docs/FASE11_*.md`
 
 ## Arranque admin

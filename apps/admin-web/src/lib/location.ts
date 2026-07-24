@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { subscribeLiveTracking } from './realtimeTracking';
 
 export interface DriverLiveLocation {
   driverProfileId: string;
@@ -181,48 +182,11 @@ export function subscribeLiveLocations(handlers: {
 }): () => void {
   const sb = getSupabase();
   if (!sb) return () => undefined;
-
-  const channel: RealtimeChannel = sb
-    .channel('pd-map-live')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'pd_driver_location_latest' },
-      () => handlers.onDbChange(),
-    )
-    .on('broadcast', { event: 'location' }, ({ payload }) => {
-      const p = payload as Record<string, unknown>;
-      handlers.onBroadcast({
-        driverProfileId: String(p.driverProfileId || ''),
-        lat: Number(p.lat),
-        lng: Number(p.lng),
-        accuracy: p.accuracy != null ? Number(p.accuracy) : null,
-        heading: p.heading != null ? Number(p.heading) : null,
-        speed: p.speed != null ? Number(p.speed) : null,
-        capturedAt: String(p.capturedAt || new Date().toISOString()),
-        sequenceNumber: 0,
-      });
-    })
-    .subscribe();
-
-  // También escuchar el canal de broadcast dedicado
-  const bc = sb.channel(BROADCAST_CHANNEL).on('broadcast', { event: 'location' }, ({ payload }) => {
-    const p = payload as Record<string, unknown>;
-    handlers.onBroadcast({
-      driverProfileId: String(p.driverProfileId || ''),
-      lat: Number(p.lat),
-      lng: Number(p.lng),
-      accuracy: p.accuracy != null ? Number(p.accuracy) : null,
-      heading: p.heading != null ? Number(p.heading) : null,
-      speed: p.speed != null ? Number(p.speed) : null,
-      capturedAt: String(p.capturedAt || new Date().toISOString()),
-      sequenceNumber: 0,
-    });
-  }).subscribe();
-
-  return () => {
-    void sb.removeChannel(channel);
-    void sb.removeChannel(bc);
-  };
+  return subscribeLiveTracking(sb, {
+    onDbChange: handlers.onDbChange,
+    onBroadcast: (loc) => handlers.onBroadcast(loc),
+    onStatus: () => undefined,
+  });
 }
 
 /** Tracking GPS del navegador (web) con intervalo adaptativo */

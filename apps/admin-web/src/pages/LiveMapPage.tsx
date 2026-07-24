@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, Marker, Popup } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -7,12 +7,10 @@ import {
   DEFAULT_MAP_ZOOM,
   FALLBACK_STREET_STYLE_URL,
   listBranchMapPoints,
-  listLiveDriverLocations,
   resolveMapStyleUrl,
-  subscribeLiveLocations,
   type BranchMapPoint,
-  type DriverLiveLocation,
 } from '../lib/location';
+import { useRealtimeTracking } from '../hooks/useRealtimeTracking';
 import { driverColor } from '../lib/driverColors';
 import {
   formatAgeSeconds,
@@ -22,7 +20,7 @@ import {
   gpsFreshness,
 } from '../lib/formatters';
 import { evaluateBranchGeofence } from '../lib/geofence';
-import { DriverLocationPayloadSchema, osrmRoute } from '../lib/osrmService';
+import { osrmRoute } from '../lib/osrmService';
 import type { RouteResult } from '../lib/routing';
 import { pickNearestBranch } from '../lib/routing';
 import {
@@ -32,6 +30,7 @@ import {
   speakTrackingEvent,
   unlockVoice,
 } from '../lib/voiceNotificationService';
+import type { RealtimeConnStatus } from '../lib/realtimeTracking';
 
 const ROUTE_SOURCE = 'pd-live-routes';
 const ROUTE_LAYER = 'pd-live-routes-line';
@@ -64,6 +63,21 @@ function statusLabel(s?: string): string {
   return map[s || ''] || s || '—';
 }
 
+function connBadge(status: RealtimeConnStatus): { label: string; className: string } {
+  switch (status) {
+    case 'subscribed':
+      return { label: 'Realtime OK', className: 'bg-emerald-100 text-emerald-800' };
+    case 'connecting':
+      return { label: 'Conectando…', className: 'bg-sky-100 text-sky-800' };
+    case 'reconnecting':
+      return { label: 'Reconectando…', className: 'bg-amber-100 text-amber-900' };
+    case 'error':
+      return { label: 'Realtime error', className: 'bg-red-100 text-red-800' };
+    default:
+      return { label: 'Realtime OFF', className: 'bg-gray-200 text-gray-700' };
+  }
+}
+
 export function LiveMapPage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -76,14 +90,19 @@ export function LiveMapPage() {
   const abortRef = useRef<AbortController | null>(null);
   const geofenceAnnunciated = useRef(new Set<string>());
 
-  const [locations, setLocations] = useState<DriverLiveLocation[]>([]);
+  const {
+    locations,
+    connStatus,
+    liveAt,
+    error: rtError,
+    loading,
+    reload,
+  } = useRealtimeTracking();
+
   const [branches, setBranches] = useState<BranchMapPoint[]>([]);
   const [routes, setRoutes] = useState<Map<string, DriverRouteState>>(new Map());
   const [error, setError] = useState('');
   const [mapError, setMapError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [liveAt, setLiveAt] = useState<string | null>(null);
-  const [rtOk, setRtOk] = useState(true);
   const [voiceOn, setVoiceOn] = useState(() => loadVoicePreference());
   const [voiceUnlocked, setVoiceUnlocked] = useState(false);
   const [followId, setFollowId] = useState<string | null>(null);
@@ -99,73 +118,17 @@ export function LiveMapPage() {
     return () => window.clearInterval(t);
   }, []);
 
-  const upsertLocal = useCallback((partial: Partial<DriverLiveLocation>) => {
-    const parsed = DriverLocationPayloadSchema.safeParse({
-      driverProfileId: partial.driverProfileId,
-      lat: partial.lat,
-      lng: partial.lng,
-      accuracy: partial.accuracy,
-      heading: partial.heading,
-      speed: partial.speed,
-      capturedAt: partial.capturedAt,
-      sequenceNumber: partial.sequenceNumber,
-      driverName: partial.driverName,
-      operationalStatus: partial.operationalStatus,
-    });
-    if (!parsed.success) return;
-    const p = parsed.data;
-    setLocations((prev) => {
-      const idx = prev.findIndex((x) => x.driverProfileId === p.driverProfileId);
-      const next: DriverLiveLocation = {
-        driverProfileId: p.driverProfileId,
-        lat: p.lat,
-        lng: p.lng,
-        accuracy: p.accuracy ?? null,
-        heading: p.heading ?? null,
-        speed: p.speed ?? null,
-        capturedAt: p.capturedAt || new Date().toISOString(),
-        sequenceNumber: p.sequenceNumber || 0,
-        driverName: p.driverName,
-        operationalStatus: p.operationalStatus,
-      };
-      if (idx < 0) return [next, ...prev];
-      const copy = [...prev];
-      copy[idx] = {
-        ...copy[idx],
-        ...next,
-        driverName: next.driverName || copy[idx].driverName,
-        operationalStatus: next.operationalStatus || copy[idx].operationalStatus,
-      };
-      return copy;
-    });
-    setLiveAt(new Date().toLocaleTimeString('es-CL'));
-    setRtOk(true);
-  }, []);
-
-  const load = useCallback(async () => {
-    setError('');
-    try {
-      const [locs, br] = await Promise.all([listLiveDriverLocations(), listBranchMapPoints()]);
-      setLocations(locs);
-      setBranches(br);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cargar');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    void listBranchMapPoints()
+      .then(setBranches)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Error sucursales'));
   }, []);
 
   useEffect(() => {
-    void load();
-    return subscribeLiveLocations({
-      onDbChange: () => {
-        void load();
-        setLiveAt(new Date().toLocaleTimeString('es-CL'));
-      },
-      onBroadcast: (p) => upsertLocal(p),
-    });
-  }, [load, upsertLocal]);
+    if (rtError) setError(rtError);
+  }, [rtError]);
 
+  const load = () => void reload();
   // Init map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -470,15 +433,22 @@ export function LiveMapPage() {
 
         <div className="flex flex-wrap gap-2">
           <span
-            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${
-              rtOk ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-            }`}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${connBadge(connStatus).className}`}
           >
-            Realtime {rtOk ? 'OK' : 'OFF'}
+            {connBadge(connStatus).label}
           </span>
           <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-gray-600 ring-1 ring-black/10">
             Sync {liveAt || '—'}
           </span>
+          {(connStatus === 'error' || connStatus === 'reconnecting' || connStatus === 'closed') && (
+            <button
+              type="button"
+              className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold ring-1 ring-black/10"
+              onClick={load}
+            >
+              Reconectar
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">

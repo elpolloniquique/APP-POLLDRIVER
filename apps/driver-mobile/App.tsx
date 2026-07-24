@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Linking,
   Pressable,
   SafeAreaView,
@@ -22,9 +23,15 @@ import {
   setAvailable,
   signIn,
   signOut,
-  upsertLocation,
 } from './src/api';
 import { getSupabase, isConfigured } from './src/supabase';
+import {
+  endTrackingSession,
+  offlineQueueSize,
+  startAdaptiveGpsLoop,
+  startTrackingSession,
+  type GpsMode,
+} from './src/locationTracking';
 
 type OfferRow = Awaited<ReturnType<typeof listPendingOffers>>[number];
 type AsgRow = Awaited<ReturnType<typeof listActiveAssignments>>[number];
@@ -41,7 +48,14 @@ export default function App() {
   const [active, setActive] = useState<AsgRow[]>([]);
   const [online, setOnline] = useState(false);
   const [gpsOn, setGpsOn] = useState(false);
-  const gpsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [gpsMode, setGpsMode] = useState<GpsMode>('idle');
+  const [lastGps, setLastGps] = useState<string | null>(null);
+  const [queued, setQueued] = useState(0);
+  const stopGpsRef = useRef<(() => void) | null>(null);
+  const activeRef = useRef(active);
+  const onlineRef = useRef(online);
+  activeRef.current = active;
+  onlineRef.current = online;
 
   const refresh = useCallback(async () => {
     try {
@@ -51,6 +65,43 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar');
     }
+  }, []);
+
+  const resolveMode = useCallback((): GpsMode => {
+    if (activeRef.current.length > 0) return 'active';
+    if (onlineRef.current) return 'available';
+    return 'idle';
+  }, []);
+
+  const startGps = useCallback(
+    (reason?: string) => {
+      stopGpsRef.current?.();
+      stopGpsRef.current = startAdaptiveGpsLoop({
+        getMode: () => {
+          const m = resolveMode();
+          setGpsMode(m);
+          return m;
+        },
+        getAssignmentId: () => String(activeRef.current[0]?.id || '') || null,
+        onTick: ({ ok, mode, queued: q }) => {
+          setGpsMode(mode);
+          setQueued(q);
+          if (ok) setLastGps(new Date().toLocaleTimeString());
+        },
+        onError: (m) => setError(m),
+      });
+      setGpsOn(true);
+      setMsg(reason || 'GPS adaptativo activo (broadcast + cola offline)');
+    },
+    [resolveMode],
+  );
+
+  const stopGps = useCallback(() => {
+    stopGpsRef.current?.();
+    stopGpsRef.current = null;
+    setGpsOn(false);
+    setGpsMode('idle');
+    setMsg('GPS detenido · ubicación ya no se comparte');
   }, []);
 
   useEffect(() => {
@@ -68,13 +119,30 @@ export default function App() {
       setLoggedIn(Boolean(session));
       if (session) void refresh();
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+      stopGpsRef.current?.();
+    };
   }, [refresh]);
 
+  // Auto GPS si hay pedidos activos
   useEffect(() => {
-    return () => {
-      if (gpsTimer.current) clearInterval(gpsTimer.current);
-    };
+    if (!loggedIn) return;
+    if (active.length > 0 && !gpsOn) {
+      const id = String(active[0]?.id || '');
+      if (id) void startTrackingSession(id);
+      startGps('GPS automático: pedido activo · el despacho te ve en vivo');
+    }
+    if (active.length === 0 && gpsOn && !online) {
+      // Mantener GPS si está disponible; si offline y sin pedidos, se puede dejar manual
+    }
+  }, [active.length, loggedIn, gpsOn, online, startGps]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', () => {
+      setQueued(offlineQueueSize());
+    });
+    return () => sub.remove();
   }, []);
 
   const onLogin = async () => {
@@ -96,31 +164,17 @@ export default function App() {
       await setAvailable(!online);
       setOnline(!online);
       setMsg(!online ? 'Disponible para ofertas' : 'Offline');
+      if (!online && !gpsOn) {
+        startGps('GPS en modo disponible (~30s)');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error estado');
     }
   };
 
-  const toggleGps = async () => {
-    if (gpsOn) {
-      if (gpsTimer.current) clearInterval(gpsTimer.current);
-      gpsTimer.current = null;
-      setGpsOn(false);
-      setMsg('GPS detenido');
-      return;
-    }
-    try {
-      const asgId = (active[0] as { id?: string } | undefined)?.id;
-      await upsertLocation(asgId);
-      setGpsOn(true);
-      setMsg('GPS activo (~cada 15s)');
-      gpsTimer.current = setInterval(() => {
-        const id = (active[0] as { id?: string } | undefined)?.id;
-        void upsertLocation(id).catch(() => undefined);
-      }, 15000);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'GPS error');
-    }
+  const toggleGps = () => {
+    if (gpsOn) stopGps();
+    else startGps();
   };
 
   const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL || '';
@@ -178,22 +232,41 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.pad}>
         <View style={styles.row}>
           <Text style={styles.brand}>POLLDRIVER</Text>
-          <Pressable onPress={() => void signOut()}>
+          <Pressable
+            onPress={() => {
+              stopGps();
+              void signOut();
+            }}
+          >
             <Text style={styles.link}>Salir</Text>
           </Pressable>
         </View>
 
         <View style={styles.row}>
           <Pressable style={[styles.chip, online && styles.chipOn]} onPress={() => void toggleOnline()}>
-            <Text style={styles.chipText}>{online ? 'Disponible' : 'Offline'}</Text>
+            <Text style={[styles.chipText, online && styles.chipTextOn]}>
+              {online ? 'Disponible' : 'Offline'}
+            </Text>
           </Pressable>
-          <Pressable style={[styles.chip, gpsOn && styles.chipGps]} onPress={() => void toggleGps()}>
-            <Text style={styles.chipText}>{gpsOn ? 'GPS ON' : 'GPS'}</Text>
+          <Pressable style={[styles.chip, gpsOn && styles.chipGps]} onPress={toggleGps}>
+            <Text style={[styles.chipText, gpsOn && styles.chipTextOn]}>
+              {gpsOn ? `GPS ${gpsMode}` : 'GPS'}
+            </Text>
           </Pressable>
           <Pressable style={styles.chip} onPress={() => void refresh()}>
             <Text style={styles.chipText}>Refresh</Text>
           </Pressable>
         </View>
+
+        {gpsOn ? (
+          <Text style={styles.ok}>
+            Compartiendo ubicación · modo {gpsMode}
+            {lastGps ? ` · ${lastGps}` : ''}
+            {queued ? ` · cola ${queued}` : ''}
+          </Text>
+        ) : (
+          <Text style={styles.muted}>GPS apagado · el mapa admin no te verá en vivo</Text>
+        )}
 
         {msg ? <Text style={styles.ok}>{msg}</Text> : null}
         {error ? <Text style={styles.err}>{error}</Text> : null}
@@ -219,9 +292,10 @@ export default function App() {
                     style={styles.btn}
                     onPress={() =>
                       void acceptOffer(String(o.id))
-                        .then(() => {
-                          setMsg('Oferta aceptada');
-                          return refresh();
+                        .then(async () => {
+                          setMsg('Oferta aceptada · activando GPS…');
+                          await refresh();
+                          startGps('GPS automático al aceptar');
                         })
                         .catch((e) => setError(e instanceof Error ? e.message : 'Error'))
                     }
@@ -284,9 +358,10 @@ export default function App() {
                       onPress={() =>
                         void currentCoords().then((c) =>
                           confirmDelivery(String(a.id), c?.lat, c?.lng)
-                            .then(() => {
+                            .then(async () => {
                               setMsg('Entregado');
-                              return refresh();
+                              await endTrackingSession(String(a.id));
+                              await refresh();
                             })
                             .catch((e) => setError(e instanceof Error ? e.message : 'Error')),
                         )
@@ -347,7 +422,14 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: '#059669', borderColor: '#059669' },
   chipGps: { backgroundColor: '#0284c7', borderColor: '#0284c7' },
   chipText: { fontWeight: '700', color: '#111827', fontSize: 12 },
-  section: { marginTop: 8, fontWeight: '800', textTransform: 'uppercase', color: '#6b7280', fontSize: 12 },
+  chipTextOn: { color: '#fff' },
+  section: {
+    marginTop: 8,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    color: '#6b7280',
+    fontSize: 12,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -360,6 +442,12 @@ const styles = StyleSheet.create({
   muted: { color: '#6b7280', fontSize: 13 },
   err: { color: '#b91c1c', fontSize: 12 },
   ok: { color: '#047857', fontSize: 12 },
-  warn: { color: '#92400e', backgroundColor: '#fffbeb', padding: 8, borderRadius: 8, fontSize: 12 },
+  warn: {
+    color: '#92400e',
+    backgroundColor: '#fffbeb',
+    padding: 8,
+    borderRadius: 8,
+    fontSize: 12,
+  },
   link: { color: '#c00000', fontWeight: '700', fontSize: 13 },
 });

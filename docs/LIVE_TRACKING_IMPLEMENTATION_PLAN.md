@@ -151,9 +151,9 @@ Frecuencias objetivo (productivo):
 | **2** | SQL 018 sessions/geofence/history + RPCs | Migración ejecutable |
 | **3** | osrmService, formatters, colors, geofence, voice, zod | Tests verdes |
 | **4** | UI Despacho en vivo profesional `/mapa` | Calles, multi-driver, colores, sidebar |
-| **5** | Realtime payload validado + reconnect UI | Connection badge |
-| **6** | Mobile: broadcast + GPS adaptativo | Paridad con web |
-| **7** | Geocercas + voz ampliada | Eventos cerca/llegó |
+| **5** | Realtime payload validado + reconnect UI | ✅ Zod + backoff + badge |
+| **6** | Mobile: broadcast + GPS adaptativo | ✅ cola offline + auto GPS |
+| **7** | Geocercas + voz ampliada | Eventos cerca/llegó (parcial en UI) |
 | **8** | Dos pedidos: multi-stop OSRM | Capacidad 2/2 en mapa |
 | **9** | Tests E2E/seguridad + docs | Checklist aceptación |
 

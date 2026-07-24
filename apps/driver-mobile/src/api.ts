@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase';
 import * as Location from 'expo-location';
+import { sendLocationNow } from './locationTracking';
 
 export async function signIn(email: string, password: string) {
   const sb = getSupabase();
@@ -93,28 +94,7 @@ export async function setAvailable(on: boolean) {
 }
 
 export async function upsertLocation(assignmentId?: string | null) {
-  const sb = getSupabase();
-  if (!sb) return { skipped: true };
-
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') throw new Error('Permiso de ubicación denegado');
-
-  const pos = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
-
-  const { data, error } = await sb.rpc('pd_upsert_driver_location', {
-    p_lat: pos.coords.latitude,
-    p_lng: pos.coords.longitude,
-    p_accuracy: pos.coords.accuracy,
-    p_heading: pos.coords.heading,
-    p_speed: pos.coords.speed,
-    p_assignment_id: assignmentId ?? null,
-    p_app_state: 'foreground',
-    p_sequence: null,
-  });
-  if (error) throw new Error(error.message);
-  return data as { ok?: boolean; skipped?: boolean };
+  return sendLocationNow({ assignmentId, appState: 'foreground' });
 }
 
 export async function currentCoords(): Promise<{ lat: number; lng: number } | null> {
