@@ -4,6 +4,12 @@
  */
 const site = process.argv[2] || 'https://app-polldriver.vercel.app';
 
+function normalizeAnonKey(key) {
+  const t = (key || '').trim();
+  if (t.startsWith('yJhbGciOiJIUzI1NiIsInR5cCI6')) return `e${t}`;
+  return t;
+}
+
 const html = await (await fetch(`${site}/login`)).text();
 const m = html.match(/assets\/([^"']+\.js)/);
 if (!m) {
@@ -12,21 +18,28 @@ if (!m) {
 }
 const js = await (await fetch(`${site}/assets/${m[1]}`)).text();
 const url = (js.match(/https:\/\/[a-z0-9]+\.supabase\.co/) || [])[0] || '';
-const pub = (js.match(/sb_publishable_[A-Za-z0-9_-]+/) || [])[0] || '';
-const jwt =
-  (js.match(
-    /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/,
-  ) || [])[0] || '';
-const key = jwt || pub;
+
+const around = js.indexOf('jhpfxxwudxyhldisxrro.supabase.co');
+const window = around >= 0 ? js.slice(around, around + 500) : js;
+const strLits = [...window.matchAll(/"([^"\\]{20,})"/g)].map((x) => x[1]);
+let key = '';
+for (const s of strLits) {
+  if (s.includes('supabase.co')) continue;
+  if (/^e?yJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(s)) {
+    key = normalizeAnonKey(s.startsWith('eyJ') ? s : s.startsWith('yJ') ? s : s);
+    if (s.startsWith('yJ')) key = normalizeAnonKey(s);
+    break;
+  }
+}
 
 console.log('site:', site);
 console.log('asset:', m[1]);
 console.log('url:', url || '(ninguna)');
-console.log('key_type:', jwt ? 'jwt-anon' : pub ? 'publishable' : 'none');
 console.log('key_len:', key.length);
+console.log('key_starts_eyJ:', key.startsWith('eyJ'));
 
 if (!url || !key) {
-  console.log('FAIL — faltan URL o key en el bundle (vars Vercel vacías o mal nombradas)');
+  console.log('FAIL — faltan URL o key en el bundle');
   process.exit(1);
 }
 
@@ -45,8 +58,8 @@ console.log('auth_status:', r.status);
 console.log('invalid_api_key:', invalid ? 'YES' : 'no');
 if (invalid) {
   console.log(
-    'ACCIÓN: En Vercel → Settings → Environment Variables pon VITE_SUPABASE_ANON_KEY = Legacy anon public (eyJ...) y Redeploy.',
+    'ACCIÓN: En Vercel pon VITE_SUPABASE_ANON_KEY completa (debe empezar por eyJ) y Redeploy.',
   );
   process.exit(1);
 }
-console.log('OK — la key del deploy es aceptada por Supabase');
+console.log('OK — key del deploy (con normalización) es aceptada por Supabase');
