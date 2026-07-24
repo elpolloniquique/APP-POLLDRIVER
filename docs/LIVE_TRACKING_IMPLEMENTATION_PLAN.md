@@ -1,7 +1,7 @@
 # Live Tracking — Plan de implementación (PollDriver)
 
 **Fecha:** 2026-07-23  
-**Estado:** Fase 1 (análisis) completada → implementación por fases  
+**Estado:** Fases 1–9 live tracking ✅ (ver `docs/FASE7_9_LIVE_GEOFENCE_MULTISTOP.md`)  
 **Regla:** No MapTiler / Mapbox / Google Maps. Stack: **MapLibre + OpenFreeMap Liberty + OSRM + Supabase Realtime**.  
 **Framework panel:** Vite + React 19 (no Next.js). Conservar.
 
@@ -27,11 +27,11 @@ APP POLLON/polldriver/
 | OSRM | ✅ driver → sucursal más cercana |
 | Voz | ✅ ETA ≤5 min al local |
 | Capacidad 2 pedidos | ✅ schema + accept race |
-| Geocercas runtime | ❌ solo `arrival_radius_m` en branches |
-| Colores por driver | ❌ todos rojo |
-| Ruta a cliente | ❌ sin lat/lng pedido |
-| Tracking sessions | ❌ no formalizado |
-| Zod / TanStack Query | ❌ no instalados |
+| Geocercas runtime | ✅ 2-hit + RPC 018 + voz |
+| Colores por driver | ✅ `driverColors.ts` |
+| Ruta a cliente | ✅ multi-stop si hay `customer_lat/lng` (019) |
+| Tracking sessions | ✅ `pd_tracking_sessions` (018) |
+| Zod / TanStack Query | ✅ Zod en payloads; Query opcional |
 
 **Conexión El Pollón:** intacta vía `pedidos` + jobs `pd_*`. No romper.
 
@@ -148,14 +148,14 @@ Frecuencias objetivo (productivo):
 | Fase | Entregable | Criterio |
 |------|------------|----------|
 | **1** | Este documento | ✅ |
-| **2** | SQL 018 sessions/geofence/history + RPCs | Migración ejecutable |
-| **3** | osrmService, formatters, colors, geofence, voice, zod | Tests verdes |
-| **4** | UI Despacho en vivo profesional `/mapa` | Calles, multi-driver, colores, sidebar |
+| **2** | SQL 018 sessions/geofence/history + RPCs | ✅ |
+| **3** | osrmService, formatters, colors, geofence, voice, zod | ✅ |
+| **4** | UI Despacho en vivo profesional `/mapa` | ✅ |
 | **5** | Realtime payload validado + reconnect UI | ✅ Zod + backoff + badge |
 | **6** | Mobile: broadcast + GPS adaptativo | ✅ cola offline + auto GPS |
-| **7** | Geocercas + voz ampliada | Eventos cerca/llegó (parcial en UI) |
-| **8** | Dos pedidos: multi-stop OSRM | Capacidad 2/2 en mapa |
-| **9** | Tests E2E/seguridad + docs | Checklist aceptación |
+| **7** | Geocercas + voz ampliada | ✅ 2-hit + RPC + voz |
+| **8** | Dos pedidos: multi-stop OSRM | ✅ capacidad + markers cliente |
+| **9** | Tests E2E/seguridad + docs | ✅ vitest + `FASE7_9_*.md` |
 
 ## 12. Estrategia de reversión
 
@@ -174,4 +174,4 @@ Frecuencias objetivo (productivo):
 
 ---
 
-**Siguiente:** Fase 2 (migración 018) + Fase 3–4 (servicios + UI Despacho en vivo).
+**Cierre live tracking MVP:** Fases 1–9 completadas. Operación: ejecutar **018** + **019** en Supabase y verificar checklist en `docs/FASE7_9_LIVE_GEOFENCE_MULTISTOP.md`.

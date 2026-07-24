@@ -1,8 +1,17 @@
 import { z } from 'zod';
 import type { RouteResult } from './routing';
-import { fetchDrivingRoute, haversineMeters } from './routing';
+import { fetchDrivingRoute, fetchMultiStopRoute, haversineMeters } from './routing';
 
-const cache = new Map<string, { at: number; route: RouteResult }>();
+const cache = new Map<
+  string,
+  {
+    at: number;
+    route: RouteResult & {
+      legDurationsSeconds?: number[];
+      legDistancesMeters?: number[];
+    };
+  }
+>();
 const CACHE_MS = 25_000;
 
 function cacheKey(parts: number[]): string {
@@ -43,9 +52,27 @@ export async function osrmRoute(
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.route;
 
-  // fetchDrivingRoute ya usa OSRM + fallback; base URL se puede inyectar luego
   void getOsrmBaseUrl();
   const route = await fetchDrivingRoute(fromLat, fromLng, toLat, toLng, signal);
+  cache.set(key, { at: Date.now(), route });
+  return route;
+}
+
+export async function osrmMultiStop(
+  points: Array<{ lat: number; lng: number }>,
+  signal?: AbortSignal,
+): Promise<RouteResult & { legDurationsSeconds: number[]; legDistancesMeters: number[] }> {
+  const flat = points.flatMap((p) => [p.lat, p.lng]);
+  const key = `m|${cacheKey(flat)}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) {
+    return {
+      ...hit.route,
+      legDurationsSeconds: hit.route.legDurationsSeconds || [],
+      legDistancesMeters: hit.route.legDistancesMeters || [],
+    };
+  }
+  const route = await fetchMultiStopRoute(points, signal);
   cache.set(key, { at: Date.now(), route });
   return route;
 }

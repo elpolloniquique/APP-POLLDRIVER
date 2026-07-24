@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, Marker, Popup } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -19,10 +19,22 @@ import {
   formatSpeedKmh,
   gpsFreshness,
 } from '../lib/formatters';
-import { evaluateBranchGeofence } from '../lib/geofence';
-import { osrmRoute } from '../lib/osrmService';
+import {
+  announceGeofence,
+  detectBranchAndConfirm,
+  detectCustomerAndConfirm,
+  persistGeofenceEvent,
+} from '../lib/geofenceService';
+import { osrmMultiStop, osrmRoute } from '../lib/osrmService';
 import type { RouteResult } from '../lib/routing';
-import { pickNearestBranch } from '../lib/routing';
+import { haversineMeters, pickNearestBranch } from '../lib/routing';
+import {
+  capacityLabel,
+  groupAssignmentsByDriver,
+  isAtCapacity,
+  listLiveAssignments,
+  type LiveAssignment,
+} from '../lib/liveDispatch';
 import {
   clearVoiceDedupe,
   loadVoicePreference,
@@ -41,6 +53,9 @@ interface DriverRouteState {
   at: number;
   fromLat: number;
   fromLng: number;
+  stopLabel?: string;
+  legEtas?: string[];
+  tickets?: string[];
 }
 
 function statusLabel(s?: string): string {
@@ -83,12 +98,12 @@ export function LiveMapPage() {
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const branchMarkersRef = useRef<Marker[]>([]);
+  const customerMarkersRef = useRef<Marker[]>([]);
   const popupsRef = useRef<Map<string, Popup>>(new Map());
   const routeStateRef = useRef<Map<string, DriverRouteState>>(new Map());
   const followIdRef = useRef<string | null>(null);
   const userMovedRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const geofenceAnnunciated = useRef(new Set<string>());
 
   const {
     locations,
@@ -100,6 +115,7 @@ export function LiveMapPage() {
   } = useRealtimeTracking();
 
   const [branches, setBranches] = useState<BranchMapPoint[]>([]);
+  const [assignments, setAssignments] = useState<LiveAssignment[]>([]);
   const [routes, setRoutes] = useState<Map<string, DriverRouteState>>(new Map());
   const [error, setError] = useState('');
   const [mapError, setMapError] = useState('');
@@ -110,25 +126,45 @@ export function LiveMapPage() {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [tick, setTick] = useState(0);
   const [lastVoice, setLastVoice] = useState<string | null>(null);
+  const [inRouteCount, setInRouteCount] = useState(0);
 
   followIdRef.current = followId;
+
+  const byDriver = useMemo(() => groupAssignmentsByDriver(assignments), [assignments]);
 
   useEffect(() => {
     const t = window.setInterval(() => setTick((n) => n + 1), 1000);
     return () => window.clearInterval(t);
   }, []);
 
+  const refreshAssignments = useCallback(async () => {
+    try {
+      const rows = await listLiveAssignments();
+      setAssignments(rows);
+      setInRouteCount(rows.length);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     void listBranchMapPoints()
       .then(setBranches)
       .catch((e) => setError(e instanceof Error ? e.message : 'Error sucursales'));
-  }, []);
+    void refreshAssignments();
+    const t = window.setInterval(() => void refreshAssignments(), 15000);
+    return () => window.clearInterval(t);
+  }, [refreshAssignments]);
 
   useEffect(() => {
     if (rtError) setError(rtError);
   }, [rtError]);
 
-  const load = () => void reload();
+  const load = () => {
+    void reload();
+    void refreshAssignments();
+  };
+
   // Init map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -194,6 +230,8 @@ export function LiveMapPage() {
       markersRef.current.clear();
       branchMarkersRef.current.forEach((m) => m.remove());
       branchMarkersRef.current = [];
+      customerMarkersRef.current.forEach((m) => m.remove());
+      customerMarkersRef.current = [];
       popupsRef.current.forEach((p) => p.remove());
       popupsRef.current.clear();
       map?.remove();
@@ -226,7 +264,7 @@ export function LiveMapPage() {
     });
   }, [locations, statusFilter, tick]);
 
-  // Routes OSRM
+  // Routes OSRM (sucursal y/o multi-stop clientes) + geocercas confirmadas
   useEffect(() => {
     if (!branches.length) return;
     abortRef.current?.abort();
@@ -241,6 +279,12 @@ export function LiveMapPage() {
         if (!branch) continue;
         if (branchFilter !== 'all' && branch.id !== branchFilter) continue;
 
+        const driverJobs = byDriver.get(loc.driverProfileId) || [];
+        const picked = driverJobs.filter((j) => Boolean(j.pickedUpAt));
+        const dropoffs = picked.filter(
+          (j) => j.customerLat != null && j.customerLng != null && Number.isFinite(j.customerLat),
+        );
+
         const prev = next.get(loc.driverProfileId);
         const need =
           !prev ||
@@ -249,39 +293,110 @@ export function LiveMapPage() {
 
         if (need) {
           try {
-            const route = await osrmRoute(loc.lat, loc.lng, branch.lat, branch.lng, ac.signal);
-            next.set(loc.driverProfileId, {
-              route,
-              branchName: branch.name,
-              at: Date.now(),
-              fromLat: loc.lat,
-              fromLng: loc.lng,
-            });
+            if (dropoffs.length >= 1) {
+              const points = [
+                { lat: loc.lat, lng: loc.lng },
+                ...dropoffs.map((d) => ({ lat: d.customerLat!, lng: d.customerLng! })),
+              ];
+              const multi = await osrmMultiStop(points, ac.signal);
+              next.set(loc.driverProfileId, {
+                route: multi,
+                branchName: branch.name,
+                at: Date.now(),
+                fromLat: loc.lat,
+                fromLng: loc.lng,
+                stopLabel: `Cliente(s) ×${dropoffs.length}`,
+                tickets: dropoffs.map((d) => d.ticketCode || d.jobId.slice(0, 6)),
+                legEtas: multi.legDurationsSeconds.map((s) => formatEtaSeconds(s)),
+              });
+            } else {
+              const route = await osrmRoute(loc.lat, loc.lng, branch.lat, branch.lng, ac.signal);
+              next.set(loc.driverProfileId, {
+                route,
+                branchName: branch.name,
+                at: Date.now(),
+                fromLat: loc.lat,
+                fromLng: loc.lng,
+                stopLabel: 'Sucursal',
+                tickets: driverJobs.map((d) => d.ticketCode || d.jobId.slice(0, 6)),
+              });
+            }
           } catch {
             /* keep prev */
           }
         }
 
         const rs = next.get(loc.driverProfileId);
+        const asgId = driverJobs[0]?.assignmentId || null;
+        const ticket = driverJobs[0]?.ticketCode;
+
         if (rs && voiceOn) {
           const etaMin = rs.route.durationSeconds / 60;
-          if (etaMin <= 5 && etaMin > 0) {
+          if (etaMin <= 5 && etaMin > 0 && !dropoffs.length) {
             speakTrackingEvent('eta_5', {
               driverName: loc.driverName || 'Repartidor',
               etaMin: Math.round(etaMin),
+              ticket,
             });
             setLastVoice(`${loc.driverName || 'Repartidor'} · ETA ~${Math.round(etaMin)} min`);
           }
-          const hit = evaluateBranchGeofence(loc.lat, loc.lng, branch.lat, branch.lng);
-          const gk = `${loc.driverProfileId}|${hit}`;
-          if (hit && !geofenceAnnunciated.current.has(gk)) {
-            geofenceAnnunciated.current.add(gk);
-            if (hit === 'approaching_branch') {
-              speakTrackingEvent('near_branch', { driverName: loc.driverName || 'Repartidor' });
+        }
+
+        // Geocerca sucursal (2 hits)
+        if (!picked.length) {
+          const hit = detectBranchAndConfirm({
+            driverId: loc.driverProfileId,
+            assignmentId: asgId,
+            driverLat: loc.lat,
+            driverLng: loc.lng,
+            branchLat: branch.lat,
+            branchLng: branch.lng,
+          });
+          if (hit && voiceOn) {
+            announceGeofence(hit, loc.driverName || 'Repartidor', ticket);
+            setLastVoice(`${loc.driverName || 'Repartidor'} · ${hit}`);
+            if (asgId) {
+              void persistGeofenceEvent({
+                assignmentId: asgId,
+                geofenceType: 'branch',
+                eventType: hit,
+                lat: loc.lat,
+                lng: loc.lng,
+                distanceMeters: haversineMeters(loc.lat, loc.lng, branch.lat, branch.lng),
+                accuracy: loc.accuracy,
+              });
             }
-            if (hit === 'arrived_branch') {
-              speakTrackingEvent('arrived_branch', { driverName: loc.driverName || 'Repartidor' });
-            }
+          }
+        }
+
+        // Geocerca cliente (primer dropoff con coords)
+        const firstDrop = dropoffs[0];
+        if (firstDrop) {
+          const hit = detectCustomerAndConfirm({
+            driverId: loc.driverProfileId,
+            assignmentId: firstDrop.assignmentId,
+            driverLat: loc.lat,
+            driverLng: loc.lng,
+            customerLat: firstDrop.customerLat!,
+            customerLng: firstDrop.customerLng!,
+          });
+          if (hit && voiceOn) {
+            announceGeofence(hit, loc.driverName || 'Repartidor', firstDrop.ticketCode);
+            setLastVoice(`${loc.driverName || 'Repartidor'} · ${hit}`);
+            void persistGeofenceEvent({
+              assignmentId: firstDrop.assignmentId,
+              geofenceType: 'customer',
+              eventType: hit,
+              lat: loc.lat,
+              lng: loc.lng,
+              distanceMeters: haversineMeters(
+                loc.lat,
+                loc.lng,
+                firstDrop.customerLat!,
+                firstDrop.customerLng!,
+              ),
+              accuracy: loc.accuracy,
+            });
           }
         }
 
@@ -294,7 +409,28 @@ export function LiveMapPage() {
     })();
 
     return () => ac.abort();
-  }, [filtered, branches, branchFilter, voiceOn]);
+  }, [filtered, branches, branchFilter, voiceOn, byDriver]);
+
+  // Customer markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    customerMarkersRef.current.forEach((m) => m.remove());
+    customerMarkersRef.current = [];
+    for (const a of assignments) {
+      if (a.customerLat == null || a.customerLng == null) continue;
+      if (!a.pickedUpAt) continue;
+      const el = document.createElement('div');
+      el.className = 'pd-live-customer';
+      el.title = `#${a.ticketCode} ${a.customerName}`;
+      el.innerHTML = `<span>📦</span>`;
+      customerMarkersRef.current.push(
+        new maplibregl.Marker({ element: el })
+          .setLngLat([a.customerLng, a.customerLat])
+          .addTo(map),
+      );
+    }
+  }, [assignments]);
 
   // Draw routes
   useEffect(() => {
@@ -420,14 +556,18 @@ export function LiveMapPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-center">
+        <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-xl bg-white p-3 ring-1 ring-black/5">
             <p className="text-[10px] font-bold uppercase text-gray-400">En vivo</p>
             <p className="text-xl font-bold text-[var(--pd-red)]">{liveCount}</p>
           </div>
           <div className="rounded-xl bg-white p-3 ring-1 ring-black/5">
-            <p className="text-[10px] font-bold uppercase text-gray-400">Total GPS</p>
+            <p className="text-[10px] font-bold uppercase text-gray-400">GPS</p>
             <p className="text-xl font-bold">{filtered.length}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3 ring-1 ring-black/5">
+            <p className="text-[10px] font-bold uppercase text-gray-400">En ruta</p>
+            <p className="text-xl font-bold">{inRouteCount}</p>
           </div>
         </div>
 
@@ -517,6 +657,14 @@ export function LiveMapPage() {
             const rs = routes.get(l.driverProfileId);
             const fresh = gpsFreshness(l.capturedAt);
             const following = followId === l.driverProfileId;
+            const jobs = byDriver.get(l.driverProfileId) || [];
+            const maxOrders = jobs[0]?.maxOrders || 2;
+            const cap = capacityLabel(jobs.length, maxOrders);
+            const full = isAtCapacity(jobs.length, maxOrders);
+            const tickets =
+              rs?.tickets?.length
+                ? rs.tickets
+                : jobs.map((j) => j.ticketCode || j.jobId.slice(0, 6));
             return (
               <li
                 key={l.driverProfileId}
@@ -532,17 +680,41 @@ export function LiveMapPage() {
                     🛵
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold">{l.driverName || 'Repartidor'}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate font-bold">{l.driverName || 'Repartidor'}</p>
+                      <span
+                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                          full
+                            ? 'bg-amber-100 text-amber-900'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {cap}
+                      </span>
+                    </div>
                     <p className="text-gray-500">{statusLabel(l.operationalStatus)}</p>
+                    {tickets.length > 0 && (
+                      <p className="mt-1 truncate text-[10px] font-semibold text-gray-700">
+                        Tickets: {tickets.join(' · ')}
+                      </p>
+                    )}
                     <p className="mt-1 tabular-nums text-gray-600">
                       {formatSpeedKmh(l.speed)} · GPS {formatAgeSeconds(l.capturedAt)}
                       {l.accuracy != null ? ` · ±${Math.round(l.accuracy)} m` : ''}
                     </p>
                     {rs ? (
-                      <p className="mt-1 font-semibold" style={{ color }}>
-                        → {rs.branchName}: {formatDistanceMeters(rs.route.distanceMeters)} · ETA{' '}
-                        {formatEtaSeconds(rs.route.durationSeconds)}
-                      </p>
+                      <>
+                        <p className="mt-1 font-semibold" style={{ color }}>
+                          → {rs.stopLabel || rs.branchName}:{' '}
+                          {formatDistanceMeters(rs.route.distanceMeters)} · ETA{' '}
+                          {formatEtaSeconds(rs.route.durationSeconds)}
+                        </p>
+                        {rs.legEtas && rs.legEtas.length > 1 && (
+                          <p className="mt-0.5 text-[10px] text-gray-500">
+                            Tramos: {rs.legEtas.map((e, i) => `#${i + 1} ${e}`).join(' · ')}
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <p className="mt-1 text-gray-400">Calculando ruta…</p>
                     )}
@@ -611,8 +783,8 @@ export function LiveMapPage() {
         <div ref={containerRef} className="absolute inset-0" />
         <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-2 text-[10px] shadow ring-1 ring-black/5">
           <p className="font-bold uppercase text-gray-500">Leyenda</p>
-          <p>🏪 Sucursal · 🛵 Repartidor (color propio) · línea = ruta OSRM</p>
-          <p className="text-gray-400">Calles: OpenFreeMap Liberty · sin MapTiler</p>
+          <p>🏪 Sucursal · 🛵 Repartidor · 📦 Cliente · línea = OSRM</p>
+          <p className="text-gray-400">Geocerca 2 hits · multi-stop · OpenFreeMap</p>
         </div>
       </section>
 
@@ -621,6 +793,12 @@ export function LiveMapPage() {
           width: 32px; height: 32px; border-radius: 10px;
           background: #111827; display: grid; place-items: center;
           box-shadow: 0 2px 10px rgb(0 0 0 / 0.35); font-size: 14px;
+        }
+        .pd-live-customer {
+          width: 30px; height: 30px; border-radius: 10px;
+          background: #0f766e; display: grid; place-items: center;
+          box-shadow: 0 2px 10px rgb(0 0 0 / 0.35); font-size: 13px;
+          border: 2px solid #fff;
         }
         .pd-live-driver {
           display: flex; flex-direction: column; align-items: center; gap: 2px;
