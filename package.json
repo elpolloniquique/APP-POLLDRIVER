@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:supabase": "node scripts/check-supabase-env.mjs",
-    "verify:golive": "node scripts/verify-go-live.mjs"
+    "verify:golive": "node scripts/verify-go-live.mjs",
+    "probe:connectivity": "node scripts/probe-connectivity.mjs"
   },
   "engines": {
     "node": ">=20"
