@@ -9,7 +9,8 @@
     "dev:mobile": "pnpm --filter @polldriver/driver-mobile start",
     "typecheck": "pnpm --filter @polldriver/admin-web typecheck && pnpm --filter @polldriver/shared-types typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:supabase": "node scripts/check-supabase-env.mjs"
   },
   "engines": {
     "node": ">=20"
