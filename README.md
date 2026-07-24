@@ -21,7 +21,8 @@ APP POLLON/
 - [Despliegue GitHub + Vercel](./docs/DEPLOY_GITHUB_VERCEL.md)
 - [Checklist go-live](./docs/GO_LIVE_CHECKLIST.md)
 - [Fase 10 Producción](./docs/FASE10_PRODUCTION.md)
-- Fases: `docs/FASE2_*.md` … `docs/FASE10_*.md`
+- [Fase 11 Ruta / ETA / voz](./docs/FASE11_LIVE_ROUTE_VOICE.md)
+- Fases: `docs/FASE2_*.md` … `docs/FASE11_*.md`
 
 ## Arranque admin
 

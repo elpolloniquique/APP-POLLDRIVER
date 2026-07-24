@@ -57,6 +57,7 @@ export function DriverOffersPage() {
   const [sharingGps, setSharingGps] = useState(false);
   const [lastGps, setLastGps] = useState<string | null>(null);
   const stopGpsRef = useRef<(() => void) | null>(null);
+  const userStoppedGpsRef = useRef(false);
   const activeRef = useRef(active);
   activeRef.current = active;
 
@@ -110,17 +111,19 @@ export function DriverOffersPage() {
     };
   }, [load]);
 
-  const toggleGps = (on: boolean) => {
+  const toggleGps = useCallback((on: boolean, reason?: string) => {
     setError('');
     stopGpsRef.current?.();
     stopGpsRef.current = null;
     if (!on) {
+      userStoppedGpsRef.current = true;
       setSharingGps(false);
       stopDriverBroadcast();
       setMsg('GPS detenido');
       return;
     }
-    const assignmentId = active[0]?.id ?? null;
+    userStoppedGpsRef.current = false;
+    const assignmentId = activeRef.current[0]?.id ?? null;
     stopGpsRef.current = startBrowserGpsTracking(
       (coords) => {
         void upsertMyLocation({
@@ -147,8 +150,18 @@ export function DriverOffersPage() {
       },
     );
     setSharingGps(true);
-    setMsg('Compartiendo GPS (cada ~8s). Visible en Mapa en vivo.');
-  };
+    setMsg(
+      reason ||
+        'Compartiendo GPS (cada ~8s). Visible en Mapa en vivo con ruta y ETA.',
+    );
+  }, []);
+
+  // Si hay pedido activo al cargar y el usuario no apagó GPS a mano, activar
+  useEffect(() => {
+    if (active.length > 0 && !sharingGps && !stopGpsRef.current && !userStoppedGpsRef.current) {
+      toggleGps(true, 'GPS reanudado: tienes pedidos activos (mapa en vivo).');
+    }
+  }, [active.length, sharingGps, toggleGps]);
 
   const isOnline =
     summary.operationalStatus === 'available' ||
@@ -174,8 +187,9 @@ export function DriverOffersPage() {
     setMsg('');
     try {
       await acceptOffer(id);
-      setMsg('¡Ganaste la oferta! Pedido asignado.');
+      setMsg('¡Ganaste la oferta! Activando GPS para el mapa…');
       await load(true);
+      toggleGps(true, 'GPS automático al aceptar: el despacho te ve en el mapa en vivo.');
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'No se pudo aceptar';
       setError(friendlyOfferError(raw));

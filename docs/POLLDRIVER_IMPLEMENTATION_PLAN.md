@@ -199,6 +199,7 @@ Todas **aditivas**. Nunca `DROP` de tablas El Pollón.
 | **8** | Tarifas | ✅ cotización `pd_pricing_rules` sin tocar `delivery_cost` TEXT |
 | **9** | Reportes | ✅ dashboard `/reportes` + `pd_dispatch_report` (SQL 016) |
 | **10** | Producción | ✅ EAS scaffold + `/privacidad` + tests + go-live checklist |
+| **11** | Ruta live + voz | ✅ GPS auto · OSRM km/ETA · aviso voz ~5 min en `/mapa` |
 
 ---
 
