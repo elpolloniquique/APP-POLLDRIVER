@@ -38,6 +38,10 @@ const hostRef = url.replace(/^https?:\/\//, '').split('.')[0];
 const keyRef = key.startsWith('eyJ') ? jwtRef(key) : '(publishable/non-jwt)';
 
 const checks = [];
+checks.push([
+  'usa VITE_SUPABASE_* (no EXPO_PUBLIC_ en admin)',
+  Boolean(url && key) && !env.EXPO_PUBLIC_SUPABASE_URL,
+]);
 checks.push(['URL presente', Boolean(url)]);
 checks.push(['KEY presente', Boolean(key)]);
 checks.push(['URL no es placeholder', !url.includes('TU_PROYECTO')]);
@@ -52,6 +56,26 @@ try {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
   });
   checks.push([`auth/health HTTP ${health.status}`, health.ok || health.status === 200]);
+
+  const tokenProbe = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email: 'probe@invalid.local', password: 'probe' }),
+  });
+  const tokenBody = await tokenProbe.text();
+  const invalidKey = /invalid api key/i.test(tokenBody);
+  checks.push([
+    `auth key válida (no Invalid API key) HTTP ${tokenProbe.status}`,
+    !invalidKey && tokenProbe.status !== 401,
+  ]);
+  if (invalidKey) {
+    profileHint =
+      'La anon key es INVÁLIDA. Copia de nuevo Legacy anon public en Supabase → Settings → API Keys.';
+  }
 
   const prof = await fetch(
     `${url}/rest/v1/profiles?select=email,role,is_active&email=eq.tutacanehuillca@gmail.com&limit=1`,
@@ -70,11 +94,11 @@ try {
     const rows = JSON.parse(body || '[]');
     if (rows[0]) {
       profileHint = `perfil (anon): role=${rows[0].role} active=${rows[0].is_active}`;
-    } else {
+    } else if (!profileHint) {
       profileHint =
         'perfil: vacío con anon (normal si RLS). El login autenticado sí lee tu fila.';
     }
-  } else {
+  } else if (!profileHint) {
     profileHint = `profiles body: ${body.slice(0, 120)}`;
   }
 } catch (e) {

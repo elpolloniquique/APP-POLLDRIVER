@@ -23,9 +23,11 @@ export function LoginPage() {
     } catch (ex) {
       const msg = ex instanceof Error ? ex.message : 'No se pudo iniciar sesión';
       setErr(
-        /failed to fetch|networkerror|load failed/i.test(msg)
-          ? 'No hay conexión con Supabase. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY (mismo proyecto) y reinicia el servidor / redeploy en Vercel.'
-          : msg,
+        /invalid api key/i.test(msg)
+          ? 'API key inválida. En local usa VITE_SUPABASE_ANON_KEY = Legacy anon (eyJ...) de Supabase. En Vercel actualiza esa var y haz Redeploy.'
+          : /failed to fetch|networkerror|load failed/i.test(msg)
+            ? 'No hay conexión con Supabase. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY (mismo proyecto) y reinicia el servidor / redeploy en Vercel.'
+            : msg,
       );
     } finally {
       setBusy(false);

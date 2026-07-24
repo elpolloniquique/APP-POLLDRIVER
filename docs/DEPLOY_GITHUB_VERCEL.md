@@ -28,7 +28,7 @@
 | Nombre | Valor |
 |--------|--------|
 | `VITE_SUPABASE_URL` | Project URL de `el-pollon-db` (Settings → API). Debe resolver en DNS. |
-| `VITE_SUPABASE_ANON_KEY` | **anon public** del mismo proyecto (el `ref` del JWT debe coincidir con el host de la URL) |
+| `VITE_SUPABASE_ANON_KEY` | **anon public** Legacy (`eyJhbGci...`) del mismo proyecto. Debe empezar por **`eyJ`** (si empieza por `yJh` está truncada y dará Invalid API key). |
 | `VITE_EL_POLLON_URL` | `https://el-pollon.cl` (opcional) |
 | `VITE_APP_NAME` | `PollDriver` (opcional) |
 

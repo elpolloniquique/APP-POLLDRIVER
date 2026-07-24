@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const url = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+const keyRaw = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+const key = keyRaw.startsWith('yJhbGciOiJIUzI1NiIsInR5cCI6') ? `e${keyRaw}` : keyRaw;
 
 let client: SupabaseClient | null = null;
 
