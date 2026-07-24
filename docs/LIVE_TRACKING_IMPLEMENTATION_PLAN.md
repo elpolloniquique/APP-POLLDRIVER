@@ -174,4 +174,5 @@ Frecuencias objetivo (productivo):
 
 ---
 
-**Cierre live tracking MVP:** Fases 1–9 completadas. Operación: ejecutar **018** + **019** en Supabase y verificar checklist en `docs/FASE7_9_LIVE_GEOFENCE_MULTISTOP.md`.
+**Cierre live tracking MVP:** Fases 1–9 completadas.  
+**Fase 10 (producción):** ver `docs/FASE10_PRODUCTION.md` + `docs/GO_LIVE_CHECKLIST.md` (SQL **018–020**, Vercel, `pnpm verify:golive`).

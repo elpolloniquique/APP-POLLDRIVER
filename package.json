@@ -10,7 +10,8 @@
     "typecheck": "pnpm --filter @polldriver/admin-web typecheck && pnpm --filter @polldriver/shared-types typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:supabase": "node scripts/check-supabase-env.mjs"
+    "check:supabase": "node scripts/check-supabase-env.mjs",
+    "verify:golive": "node scripts/verify-go-live.mjs"
   },
   "engines": {
     "node": ">=20"

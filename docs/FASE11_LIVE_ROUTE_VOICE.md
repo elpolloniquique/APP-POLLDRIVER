@@ -53,5 +53,6 @@ VITE_MAP_STYLE_URL=https://api.maptiler.com/maps/streets-v2/style.json?key=TU_KE
 
 ## Notas
 
-- OSRM demo es gratuito y tiene rate-limit; en producción alta se puede cambiar a MapTiler Directions.
-- La ruta es **repartidor → sucursal más cercana** (retiro en local). Ruta al cliente = mejora futura (requiere lat/lng del pedido).
+- Estilo de mapa: **OpenFreeMap Liberty** (`VITE_MAP_STYLE_URL`), no MapTiler.
+- OSRM demo es gratuito y tiene rate-limit; en producción alta se puede apuntar `VITE_OSRM_BASE_URL` a instancia propia.
+- Multi-stop a cliente requiere `customer_lat/lng` (migración 019). Sin coords → ruta a sucursal.

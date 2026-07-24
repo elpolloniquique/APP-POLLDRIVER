@@ -198,8 +198,8 @@ Todas **aditivas**. Nunca `DROP` de tablas El Pollón.
 | **7** | Pickup/entrega | ✅ `en_delivery` / `entregado` (SQL 014 + UI) |
 | **8** | Tarifas | ✅ cotización `pd_pricing_rules` sin tocar `delivery_cost` TEXT |
 | **9** | Reportes | ✅ dashboard `/reportes` + `pd_dispatch_report` (SQL 016) |
-| **10** | Producción | ✅ EAS scaffold + `/privacidad` + tests + go-live checklist |
-| **11** | Ruta live + voz | ✅ GPS auto · OSRM km/ETA · aviso voz ~5 min en `/mapa` |
+| **10** | Producción | ✅ go-live: Vercel + SQL 001→020 + EAS + checklist + `pnpm verify:golive` |
+| **11** | Ruta live + voz | ✅ GPS auto · OSRM km/ETA · voz · geocercas / multi-stop (fases live 1–9) |
 
 ---
 
@@ -242,5 +242,6 @@ El resto de decisiones las toma este plan.
 
 ## 13. Siguiente paso inmediato
 
-**Go-live:** completar `docs/GO_LIVE_CHECKLIST.md` (SQL 001→017, Vercel, sucursal piloto).  
-App móvil: `eas build` cuando haya cuenta Expo.
+**Go-live operativo:** completar `docs/GO_LIVE_CHECKLIST.md`  
+(SQL **001→020**, Vercel Production verde, sucursal piloto).  
+Verificación local: `pnpm verify:golive`. App móvil: `eas build` cuando haya cuenta Expo.
