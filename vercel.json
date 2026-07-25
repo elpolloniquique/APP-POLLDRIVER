@@ -4,7 +4,22 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build:admin",
   "outputDirectory": "apps/admin-web/dist",
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!sw\\.js|workbox-.*\\.js|manifest\\.webmanifest).*)", "destination": "/index.html" }
   ]
 }

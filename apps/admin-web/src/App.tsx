@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { InstallPrompt } from './components/InstallPrompt';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DriverOnboardingPage } from './pages/DriverOnboardingPage';
@@ -17,6 +18,7 @@ export function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <InstallPrompt />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/registro" element={<RegisterPage />} />

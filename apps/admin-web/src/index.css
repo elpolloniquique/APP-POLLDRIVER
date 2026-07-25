@@ -737,3 +737,136 @@ textarea {
     min-height: calc(100dvh - var(--rx-topbar-h) - var(--rx-safe-top) - 2.5rem);
   }
 }
+
+/* —— Instalar PWA —— */
+.rx-pwa {
+  position: fixed;
+  z-index: 80;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 1rem 1rem 1rem 0.9rem;
+  border-radius: 1rem;
+  background: #fff;
+  border: 1px solid rgb(15 23 42 / 0.1);
+  box-shadow: 0 16px 40px rgb(15 23 42 / 0.18);
+  max-width: 28rem;
+  margin-inline: auto;
+  animation: rx-pwa-in 0.35s ease-out;
+}
+@keyframes rx-pwa-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rx-pwa__logo {
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.75rem;
+  object-fit: cover;
+}
+.rx-pwa__body {
+  flex: 1;
+  min-width: 0;
+  padding-right: 1.25rem;
+}
+.rx-pwa__title {
+  margin: 0;
+  font-family: Barlow, system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+.rx-pwa__text {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #475569;
+}
+.rx-pwa__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+.rx-pwa__steps {
+  margin: 0.55rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #334155;
+}
+.rx-pwa__steps li + li {
+  margin-top: 0.2rem;
+}
+.rx-pwa__inline-icon {
+  display: inline;
+  vertical-align: -2px;
+  color: var(--rx-teal, #0d9488);
+}
+.rx-pwa__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+.rx-pwa__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 0.65rem;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.rx-pwa__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.rx-pwa__btn--primary {
+  background: var(--pd-red, #e10600);
+  color: #fff;
+}
+.rx-pwa__btn--ghost {
+  background: #f1f5f9;
+  color: #334155;
+}
+.rx-pwa__close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+.rx-pwa__close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+@media (min-width: 640px) {
+  .rx-pwa {
+    left: auto;
+    right: 1rem;
+    bottom: 1rem;
+    margin-inline: 0;
+  }
+}

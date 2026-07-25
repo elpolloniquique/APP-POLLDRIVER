@@ -20,6 +20,7 @@ import {
   type MapBasemapPref,
 } from '../lib/appPreferences';
 import { buildStreetStyle, sharpMapOptions } from '../lib/mapStyles';
+import { clearInstallDismiss, isAppInstalled } from '../lib/pwaInstall';
 import { isDispatchRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
 
@@ -508,6 +509,27 @@ export function SettingsPage() {
               onChange={(e) => setAutoFollow(e.target.checked)}
             />
           </label>
+
+          <div className="rounded-xl bg-slate-50 p-3 text-sm">
+            <p className="font-bold text-slate-800">Instalar RapideX en este dispositivo</p>
+            <p className="mt-1 text-xs text-slate-600">
+              {isAppInstalled()
+                ? 'Ya tienes RapideX instalada (modo app). No verás el aviso de instalación.'
+                : 'Si no está instalada, al entrar verás el mensaje “¿Deseas instalar esta aplicación?”. También puedes instalarla desde el menú del navegador.'}
+            </p>
+            {!isAppInstalled() && (
+              <button
+                type="button"
+                className="mt-2 text-xs font-bold text-[var(--rx-teal)] underline"
+                onClick={() => {
+                  clearInstallDismiss();
+                  window.location.reload();
+                }}
+              >
+                Volver a mostrar el aviso de instalación
+              </button>
+            )}
+          </div>
 
           <button type="button" className="pd-btn" onClick={savePrefs}>
             Guardar preferencias
