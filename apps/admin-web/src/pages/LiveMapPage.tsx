@@ -5,9 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
-  FALLBACK_STREET_STYLE_URL,
   listBranchMapPoints,
-  resolveMapStyleUrl,
   type BranchMapPoint,
 } from '../lib/location';
 import { useRealtimeTracking } from '../hooks/useRealtimeTracking';
@@ -35,6 +33,11 @@ import {
   listLiveAssignments,
   type LiveAssignment,
 } from '../lib/liveDispatch';
+import {
+  animateMarkerTo,
+  styleForBasemap,
+  type BasemapMode,
+} from '../lib/mapStyles';
 import {
   clearVoiceDedupe,
   loadVoicePreference,
@@ -127,6 +130,8 @@ export function LiveMapPage() {
   const [tick, setTick] = useState(0);
   const [lastVoice, setLastVoice] = useState<string | null>(null);
   const [inRouteCount, setInRouteCount] = useState(0);
+  const [basemap, setBasemap] = useState<BasemapMode>('streets');
+  const [mapReady, setMapReady] = useState(false);
 
   followIdRef.current = followId;
 
@@ -165,11 +170,12 @@ export function LiveMapPage() {
     void refreshAssignments();
   };
 
-  // Init map
+  // Init map (calles/satélite raster estables — sin MapTiler)
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     let cancelled = false;
     let map: MapLibreMap | null = null;
+    let resizeObs: ResizeObserver | null = null;
 
     const ensureRoutes = (m: MapLibreMap) => {
       if (!m.getSource(ROUTE_SOURCE)) {
@@ -186,46 +192,63 @@ export function LiveMapPage() {
           layout: { 'line-join': 'round', 'line-cap': 'round' },
           paint: {
             'line-color': ['get', 'color'],
-            'line-width': 4,
-            'line-opacity': 0.9,
+            'line-width': 5,
+            'line-opacity': 0.92,
           },
         });
       }
     };
 
-    void (async () => {
-      const styleUrl = await resolveMapStyleUrl();
-      if (cancelled || !containerRef.current) return;
-      let usedFb = styleUrl === FALLBACK_STREET_STYLE_URL;
-      try {
-        map = new maplibregl.Map({
-          container: containerRef.current,
-          style: styleUrl,
-          center: DEFAULT_MAP_CENTER,
-          zoom: DEFAULT_MAP_ZOOM,
-        });
-      } catch {
-        setMapError('No se pudo cargar el mapa. Reintentar.');
-        return;
-      }
-      map.addControl(new maplibregl.NavigationControl(), 'top-right');
-      map.on('load', () => ensureRoutes(map!));
-      map.on('dragstart', () => {
-        userMovedRef.current = true;
-        setFollowId(null);
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: styleForBasemap('streets'),
+        center: DEFAULT_MAP_CENTER,
+        zoom: DEFAULT_MAP_ZOOM,
+        attributionControl: { compact: true },
       });
-      map.on('error', () => {
-        if (usedFb || !map) return;
-        usedFb = true;
-        map.setStyle(FALLBACK_STREET_STYLE_URL);
-        map.once('load', () => ensureRoutes(map!));
-      });
-      mapRef.current = map;
-    })();
+    } catch {
+      setMapError('No se pudo iniciar el mapa. Recarga la página.');
+      return;
+    }
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 120 }), 'bottom-right');
+
+    const onReady = () => {
+      if (!map || cancelled) return;
+      ensureRoutes(map);
+      map.resize();
+      setMapReady(true);
+      setMapError('');
+    };
+
+    map.on('load', onReady);
+    map.on('dragstart', () => {
+      userMovedRef.current = true;
+      setFollowId(null);
+    });
+    map.on('error', (e) => {
+      const msg = (e as { error?: { message?: string } })?.error?.message || '';
+      if (msg) setMapError(`Mapa: ${msg.slice(0, 120)}`);
+    });
+
+    resizeObs = new ResizeObserver(() => {
+      map?.resize();
+    });
+    resizeObs.observe(containerRef.current);
+
+    // Resize diferido (layout flex / Vercel)
+    window.setTimeout(() => map?.resize(), 120);
+    window.setTimeout(() => map?.resize(), 500);
+
+    mapRef.current = map;
 
     return () => {
       cancelled = true;
+      setMapReady(false);
       abortRef.current?.abort();
+      resizeObs?.disconnect();
       markersRef.current.forEach((m) => m.remove());
       markersRef.current.clear();
       branchMarkersRef.current.forEach((m) => m.remove());
@@ -239,10 +262,53 @@ export function LiveMapPage() {
     };
   }, []);
 
+  // Cambiar Calles ↔ Satélite (omite el primer render: ya inició en calles)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (!(map as unknown as { __rxBasemapBoot?: boolean }).__rxBasemapBoot) {
+      (map as unknown as { __rxBasemapBoot?: boolean }).__rxBasemapBoot = true;
+      if (basemap === 'streets') return;
+    }
+    setMapError('');
+    map.setStyle(styleForBasemap(basemap));
+    map.once('style.load', () => {
+      if (!map.getSource(ROUTE_SOURCE)) {
+        map.addSource(ROUTE_SOURCE, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (!map.getLayer(ROUTE_LAYER)) {
+        map.addLayer({
+          id: ROUTE_LAYER,
+          type: 'line',
+          source: ROUTE_SOURCE,
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 5,
+            'line-opacity': 0.92,
+          },
+        });
+      }
+      const src = map.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource | undefined;
+      if (src) {
+        const features = [...routeStateRef.current.entries()].map(([id, rs]) => ({
+          type: 'Feature' as const,
+          properties: { color: driverColor(id) },
+          geometry: { type: 'LineString' as const, coordinates: rs.route.coordinates },
+        }));
+        src.setData({ type: 'FeatureCollection', features });
+      }
+      map.resize();
+    });
+  }, [basemap, mapReady]);
+
   // Branch markers
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady) return;
     branchMarkersRef.current.forEach((m) => m.remove());
     branchMarkersRef.current = [];
     for (const b of branches) {
@@ -255,7 +321,7 @@ export function LiveMapPage() {
         new maplibregl.Marker({ element: el }).setLngLat([b.lng, b.lat]).addTo(map),
       );
     }
-  }, [branches, branchFilter]);
+  }, [branches, branchFilter, mapReady, basemap]);
 
   const filtered = useMemo(() => {
     return locations.filter((l) => {
@@ -414,7 +480,7 @@ export function LiveMapPage() {
   // Customer markers
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady) return;
     customerMarkersRef.current.forEach((m) => m.remove());
     customerMarkersRef.current = [];
     for (const a of assignments) {
@@ -430,7 +496,7 @@ export function LiveMapPage() {
           .addTo(map),
       );
     }
-  }, [assignments]);
+  }, [assignments, mapReady, basemap]);
 
   // Draw routes
   useEffect(() => {
@@ -481,7 +547,7 @@ export function LiveMapPage() {
           map.easeTo({ center: [loc.lng, loc.lat], zoom: Math.max(map.getZoom(), 14) });
         });
       } else {
-        marker.setLngLat([loc.lng, loc.lat]);
+        animateMarkerTo(marker, loc.lng, loc.lat, 750);
       }
 
       const el = marker.getElement();
@@ -504,7 +570,11 @@ export function LiveMapPage() {
       }
 
       if (followIdRef.current === loc.driverProfileId && !userMovedRef.current) {
-        map.easeTo({ center: [loc.lng, loc.lat], duration: 600 });
+        map.easeTo({
+          center: [loc.lng, loc.lat],
+          zoom: Math.max(map.getZoom(), 16),
+          duration: 650,
+        });
       }
     }
 
@@ -552,7 +622,7 @@ export function LiveMapPage() {
         <div>
           <h1 className="text-2xl font-bold">Despacho en vivo</h1>
           <p className="mt-1 text-xs text-gray-500">
-            MapLibre · OpenFreeMap · OSRM · seguimiento multi-repartidor
+            Seguimiento tipo delivery · calles / satélite · OSRM · Realtime
           </p>
         </div>
 
@@ -774,17 +844,39 @@ export function LiveMapPage() {
       </aside>
 
       {/* Map */}
-      <section className="relative min-h-[420px] flex-1 overflow-hidden rounded-2xl ring-1 ring-black/10">
+      <section className="relative min-h-[520px] flex-1 overflow-hidden rounded-2xl ring-1 ring-black/10 lg:min-h-[calc(100dvh-5rem)]">
         {(error || mapError) && (
           <p className="absolute left-3 top-3 z-10 max-w-sm rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 shadow">
             {error || mapError}
           </p>
         )}
-        <div ref={containerRef} className="absolute inset-0" />
+        <div className="absolute right-3 top-3 z-10 flex gap-1 rounded-xl bg-white/95 p-1 shadow ring-1 ring-black/10">
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-1.5 text-[11px] font-bold ${
+              basemap === 'streets' ? 'bg-[var(--pd-red)] text-white' : 'text-gray-700'
+            }`}
+            onClick={() => setBasemap('streets')}
+          >
+            Calles
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-1.5 text-[11px] font-bold ${
+              basemap === 'satellite' ? 'bg-[var(--pd-red)] text-white' : 'text-gray-700'
+            }`}
+            onClick={() => setBasemap('satellite')}
+          >
+            Satélite
+          </button>
+        </div>
+        <div ref={containerRef} className="absolute inset-0 h-full w-full bg-[#e8eef2]" />
         <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-2 text-[10px] shadow ring-1 ring-black/5">
           <p className="font-bold uppercase text-gray-500">Leyenda</p>
-          <p>🏪 Sucursal · 🛵 Repartidor · 📦 Cliente · línea = OSRM</p>
-          <p className="text-gray-400">Geocerca 2 hits · multi-stop · OpenFreeMap</p>
+          <p>🏪 Sucursal · 🛵 Repartidor · 📦 Cliente · línea = ruta</p>
+          <p className="text-gray-400">
+            {basemap === 'satellite' ? 'Satélite Esri + calles' : 'Calles CARTO/OSM'} · Seguir = zoom en vivo
+          </p>
         </div>
       </section>
 
