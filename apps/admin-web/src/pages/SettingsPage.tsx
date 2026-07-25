@@ -19,7 +19,7 @@ import {
   saveVoiceDefault,
   type MapBasemapPref,
 } from '../lib/appPreferences';
-import { STREET_STYLE } from '../lib/mapStyles';
+import { buildStreetStyle, sharpMapOptions } from '../lib/mapStyles';
 import { isDispatchRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
 
@@ -112,10 +112,11 @@ export function SettingsPage() {
     const lng = Number(form.lng) || -70.152;
     const map = new maplibregl.Map({
       container: mapBoxRef.current,
-      style: STREET_STYLE,
+      style: buildStreetStyle(),
       center: [lng, lat],
       zoom: form.lat && form.lng ? 15 : 12,
       attributionControl: { compact: true },
+      ...sharpMapOptions(),
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
     const marker = new maplibregl.Marker({ color: '#e10600', draggable: true })
@@ -458,7 +459,7 @@ export function SettingsPage() {
 
           <div
             ref={mapBoxRef}
-            className="h-[320px] w-full overflow-hidden rounded-xl ring-1 ring-black/10 sm:h-[420px]"
+            className="rx-settings-map h-[320px] w-full overflow-hidden rounded-xl ring-1 ring-black/10 sm:h-[420px]"
           />
           <p className="text-[11px] text-gray-500">
             Tip: párate frente al local, pulsa <strong>Usar mi GPS actual</strong> y guarda. Así el

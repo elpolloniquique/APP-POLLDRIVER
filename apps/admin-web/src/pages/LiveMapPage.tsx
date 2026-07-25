@@ -35,6 +35,7 @@ import {
 } from '../lib/liveDispatch';
 import {
   animateMarkerTo,
+  sharpMapOptions,
   styleForBasemap,
   type BasemapMode,
 } from '../lib/mapStyles';
@@ -203,10 +204,11 @@ export function LiveMapPage() {
     try {
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: styleForBasemap('streets'),
+        style: styleForBasemap(loadBasemapPref()),
         center: DEFAULT_MAP_CENTER,
         zoom: DEFAULT_MAP_ZOOM,
         attributionControl: { compact: true },
+        ...sharpMapOptions(),
       });
     } catch {
       setMapError('No se pudo iniciar el mapa. Recarga la página.');
@@ -876,7 +878,7 @@ export function LiveMapPage() {
           <p className="font-bold uppercase text-gray-500">Leyenda</p>
           <p>🏪 Sucursal · 🛵 Repartidor · 📦 Cliente · línea = ruta</p>
           <p className="text-gray-400">
-            {basemap === 'satellite' ? 'Satélite Esri + calles' : 'Calles CARTO/OSM'} · Seguir = zoom en vivo
+            {basemap === 'satellite' ? 'Satélite Esri + calles HD' : 'Calles CARTO HD (@2x)'} · Seguir = zoom en vivo
           </p>
         </div>
       </section>

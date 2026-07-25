@@ -723,6 +723,15 @@ textarea {
   border: 1px solid rgb(15 23 42 / 0.08);
   background: #e8eef2;
 }
+/* Canvas a DPR real: evita el “borroso” de tiles 1x escalados */
+.rx-live__map .maplibregl-canvas,
+.rx-settings-map .maplibregl-canvas {
+  image-rendering: auto;
+}
+.rx-live__map .maplibregl-canvas-container,
+.rx-settings-map .maplibregl-canvas-container {
+  transform: translateZ(0);
+}
 @media (min-width: 1024px) {
   .rx-live__map {
     min-height: calc(100dvh - var(--rx-topbar-h) - var(--rx-safe-top) - 2.5rem);
