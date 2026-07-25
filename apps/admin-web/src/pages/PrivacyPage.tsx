@@ -3,14 +3,14 @@ export function PrivacyPage() {
     <div className="min-h-dvh bg-[var(--pd-cream)] px-4 py-10">
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--pd-red)]">PollDriver</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-[var(--pd-red)]">RapideX</p>
           <h1 className="mt-2 text-3xl font-bold">Política de privacidad</h1>
           <p className="mt-2 text-sm text-gray-500">Última actualización: julio 2026 · El Pollón</p>
         </div>
 
         <section className="space-y-3 text-sm leading-relaxed text-gray-700">
           <p>
-            PollDriver es el sistema de despacho y seguimiento de repartidores de Pollería El Pollón.
+            RapideX es el sistema de despacho y seguimiento de repartidores de Pollería El Pollón.
             Esta política describe qué datos se tratan al usar el panel web y la app móvil de
             repartidores.
           </p>
@@ -29,7 +29,7 @@ export function PrivacyPage() {
               Ubicación GPS del repartidor <strong>solo mientras comparte ubicación</strong> o tiene
               entregas activas, para el mapa de despacho.
             </li>
-            <li>Registros técnicos de auditoría de acciones en PollDriver.</li>
+            <li>Registros técnicos de auditoría de acciones en RapideX.</li>
           </ul>
 
           <h2 className="text-lg font-bold text-[var(--pd-black)]">3. Finalidad</h2>
@@ -65,7 +65,7 @@ export function PrivacyPage() {
           </p>
 
           <h2 className="text-lg font-bold text-[var(--pd-black)]">8. Menores</h2>
-          <p>PollDriver no está dirigido a menores de 18 años.</p>
+          <p>RapideX no está dirigido a menores de 18 años.</p>
         </section>
       </div>
     </div>

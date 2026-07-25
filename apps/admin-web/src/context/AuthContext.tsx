@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, createContext, useContext, useCallback } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import type { ElPollonRole } from '@polldriver/shared-types';
+import { canLoginToApp } from '../lib/roles';
 
 export interface PdProfile {
   id: string;
@@ -19,11 +20,10 @@ interface AuthState {
   user: User | null;
   profile: PdProfile | null;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<PdProfile>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<PdProfile | null>;
 }
-
-import { createContext, useContext, useCallback } from 'react';
 
 const AuthContext = createContext<AuthState | null>(null);
 
@@ -39,10 +39,12 @@ function mapProfile(row: Record<string, unknown>): PdProfile {
   };
 }
 
+/** @deprecated usar isDispatchRole / isDriverRole de lib/roles */
 export const STAFF_ROLES = new Set([
   'super_admin',
   'admin_sucursal',
   'administrador',
+  'despachador',
   'cajera',
   'cajero',
   'delivery',
@@ -71,6 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (err) throw err;
     return data ? mapProfile(data) : null;
   }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const sb = getSupabase();
+    if (!sb) return null;
+    const { data } = await sb.auth.getUser();
+    if (!data.user) {
+      setProfile(null);
+      return null;
+    }
+    const p = await loadProfile(data.user.id);
+    setProfile(p);
+    return p;
+  }, [loadProfile]);
 
   useEffect(() => {
     const sb = getSupabase();
@@ -112,11 +127,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error: err } = await sb.auth.signInWithPassword({ email, password });
     if (err) throw err;
     const p = data.user ? await loadProfile(data.user.id) : null;
-    if (!p || !STAFF_ROLES.has(p.role)) {
+    if (!p || !canLoginToApp(p.role)) {
       await sb.auth.signOut();
-      throw new Error('Esta cuenta no tiene acceso a PollDriver (se requiere staff o repartidor)');
+      throw new Error(
+        'Esta cuenta no tiene acceso a RapideX. Usa una cuenta de repartidor, administrador o despacho.',
+      );
     }
     setProfile(p);
+    setSession(data.session);
+    setUser(data.user);
+    return p;
   };
 
   const signOut = async () => {
@@ -127,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ loading, session, user, profile, error, signIn, signOut }}
+      value={{ loading, session, user, profile, error, signIn, signOut, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>

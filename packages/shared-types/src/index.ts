@@ -19,7 +19,9 @@ export type ElPollonRole =
   | 'delivery'
   | 'cliente'
   | 'administrador'
-  | 'repartidor';
+  | 'repartidor'
+  | 'despachador'
+  | 'cajero';
 
 export type PdDriverAdminStatus = 'pending' | 'approved' | 'rejected' | 'suspended' | 'blocked';
 

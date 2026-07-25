@@ -118,7 +118,7 @@ export function ReportsPage() {
         <div>
           <h1 className="text-2xl font-bold">Reportes de despacho</h1>
           <p className="mt-1 text-sm text-gray-500">
-            KPIs PollDriver · jobs, tiempos, tarifas cotizadas y ranking de repartidores
+            KPIs RapideX · jobs, tiempos, tarifas cotizadas y ranking de repartidores
           </p>
         </div>
         <button type="button" className="pd-btn" onClick={() => void load()} disabled={loading}>

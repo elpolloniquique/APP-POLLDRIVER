@@ -1,11 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { DriverOnboardingPage } from './pages/DriverOnboardingPage';
 import { AppShell } from './pages/AppShell';
 import { DispatchHomePage } from './pages/DispatchPages';
 import { LiveMapPage } from './pages/LiveMapPage';
 import { DriversPage } from './pages/DriversPage';
-import { ApplyPage } from './pages/ApplyPage';
 import { DriverOffersPage } from './pages/DriverOffersPage';
 import { PricingPage } from './pages/PricingPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -17,7 +18,9 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/postular" element={<ApplyPage />} />
+          <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/onboarding" element={<DriverOnboardingPage />} />
+          <Route path="/postular" element={<Navigate to="/registro" replace />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route element={<AppShell />}>
             <Route index element={<DispatchHomePage />} />
@@ -27,7 +30,7 @@ export function App() {
             <Route path="tarifas" element={<PricingPage />} />
             <Route path="reportes" element={<ReportsPage />} />
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -143,7 +143,7 @@ export function PricingPage() {
       <div>
         <h1 className="text-2xl font-bold">Tarifas delivery</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Cotización PollDriver · <strong>no altera</strong> <code>branches.delivery_cost</code> (TEXT)
+          Cotización RapideX · <strong>no altera</strong> <code>branches.delivery_cost</code> (TEXT)
         </p>
       </div>
 

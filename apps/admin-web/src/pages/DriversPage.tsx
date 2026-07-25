@@ -135,12 +135,12 @@ export function DriversPage() {
         <div>
           <h1 className="text-2xl font-bold">Repartidores</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Solicitudes y aprobación → rol <code>delivery</code> en El Pollón
+            Central RapideX · aprobar o rechazar solicitudes de repartidores
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/postular" className="rounded-xl bg-white px-4 py-2 text-sm font-bold ring-1 ring-black/10 hover:bg-gray-50">
-            Formulario postulación
+          <Link to="/registro" className="rounded-xl bg-white px-4 py-2 text-sm font-bold ring-1 ring-black/10 hover:bg-gray-50">
+            Alta pública (/registro)
           </Link>
           <button type="button" className="pd-btn" onClick={() => void load()} disabled={loading}>
             {loading ? 'Actualizando…' : 'Actualizar'}

@@ -188,11 +188,11 @@ export async function submitDriverApplication(input: SubmitApplicationInput) {
   return data as string;
 }
 
-/** Registro + postulación (para repartidor nuevo) */
-export async function registerAndApply(
+/** Registro solo cuenta (sin postulación). Luego completa /onboarding. */
+export async function registerDriverAccount(
   email: string,
   password: string,
-  input: SubmitApplicationInput,
+  fullName?: string,
 ) {
   const sb = getSupabase();
   if (!sb) throw new Error('Supabase no configurado');
@@ -202,9 +202,7 @@ export async function registerAndApply(
     password,
     options: {
       data: {
-        full_name: input.fullName,
-        phone: input.phone,
-        // queda como cliente hasta aprobación; approve pone role=delivery
+        full_name: fullName?.trim() || '',
       },
     },
   });
@@ -218,14 +216,92 @@ export async function registerAndApply(
     });
     if (inErr) {
       throw new Error(
-        'Cuenta creada, pero falta confirmar el correo o iniciar sesión. Usa “Ya tengo cuenta” tras confirmar.',
+        'Cuenta creada. Si Confirm email está activo, confirma el correo y luego inicia sesión.',
       );
     }
   }
 
-  // Esperar a que el trigger cree profiles
-  await new Promise((r) => setTimeout(r, 700));
+  await new Promise((r) => setTimeout(r, 600));
+  return { userId: sign.user.id };
+}
 
-  const appId = await submitDriverApplication(input);
-  return { userId: sign.user.id, applicationId: appId };
+export interface MyDriverStatus {
+  driverProfileId: string | null;
+  adminStatus: string | null;
+  applicationStatus: string | null;
+  applicationId: string | null;
+  reviewerNote: string;
+}
+
+/** Estado de postulación del usuario autenticado */
+export async function getMyDriverStatus(): Promise<MyDriverStatus> {
+  const sb = getSupabase();
+  if (!sb) {
+    return {
+      driverProfileId: null,
+      adminStatus: null,
+      applicationStatus: null,
+      applicationId: null,
+      reviewerNote: '',
+    };
+  }
+
+  const { data: auth } = await sb.auth.getUser();
+  if (!auth.user) {
+    return {
+      driverProfileId: null,
+      adminStatus: null,
+      applicationStatus: null,
+      applicationId: null,
+      reviewerNote: '',
+    };
+  }
+
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('id')
+    .eq('auth_user_id', auth.user.id)
+    .maybeSingle();
+
+  if (!profile?.id) {
+    return {
+      driverProfileId: null,
+      adminStatus: null,
+      applicationStatus: null,
+      applicationId: null,
+      reviewerNote: '',
+    };
+  }
+
+  const { data: driver } = await sb
+    .from('pd_driver_profiles')
+    .select('id, admin_status')
+    .eq('profile_id', profile.id)
+    .maybeSingle();
+
+  if (!driver?.id) {
+    return {
+      driverProfileId: null,
+      adminStatus: null,
+      applicationStatus: null,
+      applicationId: null,
+      reviewerNote: '',
+    };
+  }
+
+  const { data: app } = await sb
+    .from('pd_driver_applications')
+    .select('id, status, reviewer_note')
+    .eq('driver_profile_id', driver.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    driverProfileId: String(driver.id),
+    adminStatus: String(driver.admin_status || ''),
+    applicationStatus: app ? String(app.status) : null,
+    applicationId: app ? String(app.id) : null,
+    reviewerNote: app ? String(app.reviewer_note || '') : '',
+  };
 }

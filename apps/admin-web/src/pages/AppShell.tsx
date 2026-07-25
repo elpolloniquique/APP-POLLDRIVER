@@ -1,8 +1,7 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Bell, MapPin, Package, Users, LogOut, CircleDollarSign, BarChart3 } from 'lucide-react';
-import { isStaffRole, useAuth } from '../context/AuthContext';
-
-const DRIVER_ROLES = new Set(['delivery', 'repartidor']);
+import { useAuth } from '../context/AuthContext';
+import { isDispatchRole, isDriverRole } from '../lib/roles';
 
 export function AppShell() {
   const { loading, session, profile, signOut } = useAuth();
@@ -11,16 +10,21 @@ export function AppShell() {
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-sm text-gray-500">
-        Cargando PollDriver…
+        Cargando RapideX…
       </div>
     );
   }
 
-  if (!session || !profile || !isStaffRole(profile.role)) {
+  if (!session || !profile) {
     return <Navigate to="/login" replace />;
   }
 
-  const isDriver = DRIVER_ROLES.has(profile.role);
+  // Candidato sin rol delivery → onboarding
+  if (!isDriverRole(profile.role) && !isDispatchRole(profile.role)) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  const isDriver = isDriverRole(profile.role);
 
   if (isDriver && location.pathname === '/') {
     return <Navigate to="/ofertas" replace />;
@@ -30,8 +34,23 @@ export function AppShell() {
     <div className="flex min-h-dvh">
       <aside className="flex w-56 shrink-0 flex-col bg-[var(--pd-black)] text-white">
         <div className="border-b border-white/10 p-4">
-          <p className="font-bold tracking-wide text-[var(--pd-red)]">POLLDRIVER</p>
-          <p className="mt-1 truncate text-xs text-white/60">{profile.fullName || profile.email}</p>
+          <div className="flex items-center gap-2">
+            <img
+              src="/brand/rapidex-logo.png"
+              alt=""
+              className="h-9 w-9 rounded-full object-cover ring-2 ring-[var(--pd-red)]"
+            />
+            <div>
+              <p className="font-bold tracking-wide">
+                <span className="text-white">Rapide</span>
+                <span className="text-[var(--pd-red)]">X</span>
+              </p>
+              <p className="text-[10px] uppercase text-white/40">
+                {isDriver ? 'Repartidor' : 'Central'}
+              </p>
+            </div>
+          </div>
+          <p className="mt-2 truncate text-xs text-white/60">{profile.fullName || profile.email}</p>
           <p className="text-[10px] uppercase text-white/40">{profile.role}</p>
         </div>
         <nav className="flex-1 space-y-1 p-2 text-sm">
