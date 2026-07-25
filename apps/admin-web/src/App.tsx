@@ -11,6 +11,7 @@ import { DriverOffersPage } from './pages/DriverOffersPage';
 import { PricingPage } from './pages/PricingPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export function App() {
   return (
@@ -29,6 +30,7 @@ export function App() {
             <Route path="ofertas" element={<DriverOffersPage />} />
             <Route path="tarifas" element={<PricingPage />} />
             <Route path="reportes" element={<ReportsPage />} />
+            <Route path="configuracion" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

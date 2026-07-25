@@ -38,6 +38,7 @@ import {
   styleForBasemap,
   type BasemapMode,
 } from '../lib/mapStyles';
+import { loadBasemapPref, loadPreferredBranchId } from '../lib/appPreferences';
 import {
   clearVoiceDedupe,
   loadVoicePreference,
@@ -126,11 +127,11 @@ export function LiveMapPage() {
   const [voiceUnlocked, setVoiceUnlocked] = useState(false);
   const [followId, setFollowId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [branchFilter, setBranchFilter] = useState<string>(() => loadPreferredBranchId() || 'all');
   const [tick, setTick] = useState(0);
   const [lastVoice, setLastVoice] = useState<string | null>(null);
   const [inRouteCount, setInRouteCount] = useState(0);
-  const [basemap, setBasemap] = useState<BasemapMode>('streets');
+  const [basemap, setBasemap] = useState<BasemapMode>(() => loadBasemapPref());
   const [mapReady, setMapReady] = useState(false);
 
   followIdRef.current = followId;

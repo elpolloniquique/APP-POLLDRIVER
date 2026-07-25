@@ -643,12 +643,42 @@ textarea {
   color: var(--rx-muted);
   line-height: 1.4;
 }
+.rx-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgb(15 23 42 / 0.06);
+}
+.rx-tabs__btn {
+  border: none;
+  border-radius: 10px;
+  min-height: 40px;
+  padding: 0.45rem 0.85rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4b5563;
+  background: transparent;
+  cursor: pointer;
+}
+.rx-tabs__btn.is-active {
+  background: rgb(225 6 0 / 0.1);
+  color: var(--pd-red);
+}
 .rx-card {
   background: #fff;
   border-radius: 1rem;
   padding: 1rem;
   box-shadow: 0 1px 0 rgb(15 23 42 / 0.04);
   border: 1px solid rgb(15 23 42 / 0.06);
+}
+@media (min-width: 640px) {
+  .rx-card {
+    padding: 1.25rem;
+  }
 }
 
 /* Mapa live: apilado en móvil */

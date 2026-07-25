@@ -20,11 +20,12 @@ Ejecutar en orden en SQL Editor (`polldriver/supabase/migrations/`):
 - [ ] 001 … 016 (core, despacho, GPS, tarifas, reportes)
 - [ ] 017 production verify (NOTICE / counts)
 
-### Live tracking (018→020)
+### Live tracking (018→021)
 
 - [ ] **018** sessions / geofence events / status history / RPCs
 - [ ] **019** customer_lat/lng + `pd_list_live_assignments` + distancia
 - [ ] **020** verify go-live → revisar NOTICE y lista de funciones
+- [ ] **021** configuración sucursal (`pd_update_branch_dispatch_settings`)
 
 ## Sucursal piloto
 

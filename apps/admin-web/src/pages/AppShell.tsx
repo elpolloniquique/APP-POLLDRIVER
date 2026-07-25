@@ -10,6 +10,7 @@ import {
   BarChart3,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isDispatchRole, isDriverRole } from '../lib/roles';
@@ -69,6 +70,7 @@ export function AppShell() {
     { to: '/reportes', label: 'Reportes', icon: BarChart3 },
     { to: '/tarifas', label: 'Tarifas', icon: CircleDollarSign },
     { to: '/ofertas', label: 'Ofertas', icon: Bell },
+    { to: '/configuracion', label: 'Configuración', icon: Settings },
   ];
 
   const driverNav: NavItem[] = [{ to: '/ofertas', label: 'Mis ofertas', icon: Bell, end: true }];
