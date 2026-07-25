@@ -117,12 +117,6 @@ export function AppShell() {
 
       {menuOpen && (
         <div className="rx-drawer" role="dialog" aria-modal="true" aria-label="Menú RapideX">
-          <button
-            type="button"
-            className="rx-drawer__scrim"
-            aria-label="Cerrar menú"
-            onClick={() => setMenuOpen(false)}
-          />
           <aside className="rx-drawer__panel">
             <div className="rx-drawer__head">
               <div className="flex min-w-0 items-center gap-3">
@@ -183,6 +177,12 @@ export function AppShell() {
               <LogOut className="h-4 w-4" /> Salir
             </button>
           </aside>
+          <button
+            type="button"
+            className="rx-drawer__scrim"
+            aria-label="Cerrar menú"
+            onClick={() => setMenuOpen(false)}
+          />
         </div>
       )}
 
