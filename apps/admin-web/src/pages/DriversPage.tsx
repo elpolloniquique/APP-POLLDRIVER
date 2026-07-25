@@ -130,11 +130,11 @@ export function DriversPage() {
     branches.find((b) => b.id === id)?.name || (id ? id.slice(0, 8) : '—');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rx-page">
+      <div className="rx-page__head">
         <div>
-          <h1 className="text-2xl font-bold">Repartidores</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="rx-page__title">Repartidores</h1>
+          <p className="rx-page__sub">
             Central RapideX · aprobar o rechazar solicitudes de repartidores
           </p>
         </div>

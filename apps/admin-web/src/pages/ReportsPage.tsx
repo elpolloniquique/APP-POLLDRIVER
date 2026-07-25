@@ -113,10 +113,10 @@ export function ReportsPage() {
   const statusMax = Math.max(1, ...statusEntries.map(([, n]) => n));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rx-page">
+      <div className="rx-page__head">
         <div>
-          <h1 className="text-2xl font-bold">Reportes de despacho</h1>
+          <h1 className="rx-page__title">Reportes de despacho</h1>
           <p className="mt-1 text-sm text-gray-500">
             KPIs RapideX · jobs, tiempos, tarifas cotizadas y ranking de repartidores
           </p>

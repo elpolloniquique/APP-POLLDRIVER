@@ -139,12 +139,14 @@ export function PricingPage() {
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name || id.slice(0, 8);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Tarifas delivery</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Cotización RapideX · <strong>no altera</strong> <code>branches.delivery_cost</code> (TEXT)
-        </p>
+    <div className="rx-page">
+      <div className="rx-page__head">
+        <div>
+          <h1 className="rx-page__title">Tarifas delivery</h1>
+          <p className="rx-page__sub">
+            Cotización RapideX · no altera branches.delivery_cost (TEXT)
+          </p>
+        </div>
       </div>
 
       {!schemaReady && (
