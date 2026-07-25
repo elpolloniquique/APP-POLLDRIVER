@@ -29,8 +29,13 @@ export function AppShell() {
     if (!menuOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
     };
   }, [menuOpen]);
 
@@ -67,90 +72,37 @@ export function AppShell() {
   ];
 
   const driverNav: NavItem[] = [{ to: '/ofertas', label: 'Mis ofertas', icon: Bell, end: true }];
-
   const nav = isDriver ? driverNav : staffNav;
-  const bottomNav = isDriver
-    ? driverNav
-    : [
-        { to: '/', label: 'Despacho', icon: Package, end: true },
-        { to: '/mapa', label: 'Mapa', icon: MapPin },
-        { to: '/repartidores', label: 'Repart.', icon: Users },
-        { to: '/ofertas', label: 'Ofertas', icon: Bell },
-      ];
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `rx-navlink${isActive ? ' is-active' : ''}`;
 
-  const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <>
-      {nav.map((item) => {
-        const Icon = item.icon;
-        return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={linkClass}
-            onClick={onNavigate}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            <span>{item.label}</span>
-          </NavLink>
-        );
-      })}
-    </>
-  );
-
   return (
-    <div className="rx-shell">
-      {/* Desktop sidebar */}
-      <aside className="rx-sidebar">
-        <div className="rx-sidebar__brand">
-          <img src="/brand/rapidex-logo.png" alt="RapideX" className="rx-sidebar__avatar" />
-          <div className="min-w-0">
-            <p className="rx-sidebar__name">
-              Rapide<span>X</span>
-            </p>
-            <p className="rx-sidebar__role">{isDriver ? 'Repartidor' : 'Central'}</p>
-          </div>
-        </div>
-        <div className="rx-sidebar__user">
-          <p className="truncate font-semibold text-white/90">
-            {profile.fullName || profile.email}
-          </p>
-          <p className="truncate text-[10px] uppercase tracking-wide text-white/40">
-            {profile.role}
-          </p>
-        </div>
-        <nav className="rx-sidebar__nav">
-          <NavLinks />
-        </nav>
-        <button type="button" className="rx-sidebar__out" onClick={() => void signOut()}>
-          <LogOut className="h-4 w-4" /> Salir
-        </button>
-      </aside>
-
-      {/* Mobile top bar */}
+    <div className="rx-shell rx-shell--overlay">
       <header className="rx-topbar">
         <button
           type="button"
           className="rx-icon-btn"
           aria-label="Abrir menú"
+          aria-expanded={menuOpen}
           onClick={() => setMenuOpen(true)}
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex min-w-0 items-center gap-2">
-          <img src="/brand/rapidex-logo.png" alt="" className="h-8 w-8 rounded-full object-cover" />
+
+        <div className="rx-topbar__brand">
+          <img src="/brand/rapidex-logo.png" alt="" className="rx-topbar__logo" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-extrabold tracking-tight">
-              Rapide<span className="text-[var(--pd-red)]">X</span>
+            <p className="rx-topbar__title">
+              Rapide<span>X</span>
             </p>
-            <p className="truncate text-[10px] text-white/50">
-              {profile.fullName || profile.email}
+            <p className="rx-topbar__sub">
+              {isDriver ? 'Repartidor' : 'Central'}
+              {profile.fullName ? ` · ${profile.fullName}` : ''}
             </p>
           </div>
         </div>
+
         <button
           type="button"
           className="rx-icon-btn"
@@ -161,20 +113,29 @@ export function AppShell() {
         </button>
       </header>
 
-      {/* Mobile drawer */}
       {menuOpen && (
-        <div className="rx-drawer" role="dialog" aria-modal="true">
+        <div className="rx-drawer" role="dialog" aria-modal="true" aria-label="Menú RapideX">
           <button
             type="button"
             className="rx-drawer__scrim"
             aria-label="Cerrar menú"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="rx-drawer__panel">
-            <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
-              <p className="font-extrabold">
-                Rapide<span className="text-[var(--pd-red)]">X</span>
-              </p>
+          <aside className="rx-drawer__panel">
+            <div className="rx-drawer__head">
+              <div className="flex min-w-0 items-center gap-3">
+                <img
+                  src="/brand/rapidex-logo.png"
+                  alt=""
+                  className="h-11 w-11 rounded-full object-cover ring-2 ring-[var(--pd-red)]"
+                />
+                <div className="min-w-0">
+                  <p className="rx-sidebar__name">
+                    Rapide<span>X</span>
+                  </p>
+                  <p className="rx-sidebar__role">{isDriver ? 'Repartidor' : 'Central'}</p>
+                </div>
+              </div>
               <button
                 type="button"
                 className="rx-icon-btn"
@@ -184,9 +145,34 @@ export function AppShell() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-              <NavLinks onNavigate={() => setMenuOpen(false)} />
+
+            <div className="rx-drawer__user">
+              <p className="truncate font-semibold text-white/95">
+                {profile.fullName || profile.email}
+              </p>
+              <p className="truncate text-[10px] uppercase tracking-wider text-white/40">
+                {profile.role}
+              </p>
+            </div>
+
+            <nav className="rx-drawer__nav">
+              {nav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={linkClass}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
             </nav>
+
             <button
               type="button"
               className="rx-sidebar__out"
@@ -194,7 +180,7 @@ export function AppShell() {
             >
               <LogOut className="h-4 w-4" /> Salir
             </button>
-          </div>
+          </aside>
         </div>
       )}
 
@@ -203,24 +189,6 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
-
-      {/* Mobile bottom nav */}
-      <nav className="rx-bottomnav" aria-label="Navegación principal">
-        {bottomNav.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => `rx-bottomnav__item${isActive ? ' is-active' : ''}`}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
-            </NavLink>
-          );
-        })}
-      </nav>
     </div>
   );
 }
