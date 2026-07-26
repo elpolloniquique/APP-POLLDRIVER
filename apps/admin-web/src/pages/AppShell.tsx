@@ -11,9 +11,13 @@ import {
   Menu,
   X,
   Settings,
+  History,
+  Wallet,
+  UserRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isDispatchRole, isDriverRole } from '../lib/roles';
+import { getMyDriverSummary, listMyPendingOffers, type DriverSummary } from '../lib/dispatch';
 
 type NavItem = { to: string; label: string; icon: typeof Package; end?: boolean };
 
@@ -21,6 +25,8 @@ export function AppShell() {
   const { loading, session, profile, signOut } = useAuth();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [online, setOnline] = useState(false);
+  const [offerCount, setOfferCount] = useState(0);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -40,6 +46,40 @@ export function AppShell() {
     };
   }, [menuOpen]);
 
+  const isDriver = Boolean(profile && isDriverRole(profile.role));
+
+  useEffect(() => {
+    if (!isDriver) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const [s, offers] = await Promise.all([
+          getMyDriverSummary().catch(() => ({ ok: false } as DriverSummary)),
+          listMyPendingOffers().catch(() => []),
+        ]);
+        if (cancelled) return;
+        const st = s.ok ? s.operationalStatus : '';
+        setOnline(
+          st === 'available' ||
+            st === 'offered' ||
+            st === 'heading_to_branch' ||
+            st === 'waiting_at_branch' ||
+            st === 'carrying_orders' ||
+            st === 'delivering',
+        );
+        setOfferCount(offers.length);
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const t = window.setInterval(() => void tick(), 12_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [isDriver, location.pathname]);
+
   if (loading) {
     return (
       <div className="rx-boot">
@@ -57,8 +97,6 @@ export function AppShell() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  const isDriver = isDriverRole(profile.role);
-
   if (isDriver && location.pathname === '/') {
     return <Navigate to="/ofertas" replace />;
   }
@@ -73,14 +111,25 @@ export function AppShell() {
     { to: '/configuracion', label: 'Configuración', icon: Settings },
   ];
 
-  const driverNav: NavItem[] = [{ to: '/ofertas', label: 'Mis ofertas', icon: Bell, end: true }];
-  const nav = isDriver ? driverNav : staffNav;
+  const driverDrawerNav: NavItem[] = [
+    { to: '/ofertas', label: 'Pedidos', icon: Package, end: true },
+    { to: '/driver/mapa', label: 'Mapa', icon: MapPin },
+    { to: '/driver/historial', label: 'Historial', icon: History },
+    { to: '/driver/ingresos', label: 'Ingresos', icon: Wallet },
+    { to: '/driver/perfil', label: 'Perfil', icon: UserRound },
+  ];
+
+  const driverTabs: NavItem[] = driverDrawerNav;
+  const nav = isDriver ? driverDrawerNav : staffNav;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `rx-navlink${isActive ? ' is-active' : ''}`;
 
+  const tabClass = ({ isActive }: { isActive: boolean }) =>
+    `rx-dtab${isActive ? ' is-active' : ''}`;
+
   return (
-    <div className="rx-shell rx-shell--overlay">
+    <div className={`rx-shell rx-shell--overlay${isDriver ? ' rx-shell--driver' : ''}`}>
       <header className="rx-topbar">
         <button
           type="button"
@@ -99,20 +148,41 @@ export function AppShell() {
               Rapide<span>X</span>
             </p>
             <p className="rx-topbar__sub">
-              {isDriver ? 'Repartidor' : 'Central'}
-              {profile.fullName ? ` · ${profile.fullName}` : ''}
+              {isDriver ? (
+                <>
+                  Repartidor
+                  {profile.fullName ? ` · ${profile.fullName}` : ''}
+                  <span className={`rx-online ${online ? 'is-on' : ''}`}>
+                    <span className="rx-online__dot" />
+                    {online ? 'En línea' : 'Offline'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Central
+                  {profile.fullName ? ` · ${profile.fullName}` : ''}
+                </>
+              )}
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          className="rx-icon-btn"
-          aria-label="Salir"
-          onClick={() => void signOut()}
-        >
-          <LogOut className="h-5 w-5" />
-        </button>
+        <div className="rx-topbar__actions">
+          {isDriver && (
+            <NavLink to="/ofertas" className="rx-icon-btn rx-icon-btn--badge" aria-label="Pedidos">
+              <Bell className="h-5 w-5" />
+              {offerCount > 0 && <span className="rx-badge">{offerCount > 9 ? '9+' : offerCount}</span>}
+            </NavLink>
+          )}
+          <button
+            type="button"
+            className="rx-icon-btn"
+            aria-label="Salir"
+            onClick={() => void signOut()}
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       {menuOpen && (
@@ -187,10 +257,24 @@ export function AppShell() {
       )}
 
       <div className="rx-main-wrap">
-        <main className="rx-main">
+        <main className={`rx-main${isDriver ? ' rx-main--driver' : ''}`}>
           <Outlet />
         </main>
       </div>
+
+      {isDriver && (
+        <nav className="rx-driver-tabs" aria-label="Navegación repartidor">
+          {driverTabs.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink key={item.to} to={item.to} end={item.end} className={tabClass}>
+                <Icon size={20} />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+      )}
     </div>
   );
 }

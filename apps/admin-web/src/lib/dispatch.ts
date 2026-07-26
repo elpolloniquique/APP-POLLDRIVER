@@ -134,19 +134,52 @@ export async function expireStaleOffers(jobId?: string) {
   if (error) throw new Error(error.message);
 }
 
+export interface DriverJobInfo {
+  id: string;
+  ticketCode: string;
+  customerName: string;
+  customerAddress: string;
+  customerPhone: string;
+  orderTotal: number;
+  status: string;
+  branchId: string | null;
+  customerLat: number | null;
+  customerLng: number | null;
+  deliveryFeeQuoted: number | null;
+  deliveryDistanceKm: number | null;
+  sourceOrderId?: string;
+}
+
+function mapDriverJob(j: Record<string, unknown> | null | undefined): DriverJobInfo {
+  return {
+    id: String(j?.id || ''),
+    ticketCode: String(j?.ticket_code || ''),
+    customerName: String(j?.customer_name || ''),
+    customerAddress: String(j?.customer_address || ''),
+    customerPhone: String(j?.customer_phone || ''),
+    orderTotal: Number(j?.order_total) || 0,
+    status: String(j?.status || ''),
+    branchId: j?.branch_id ? String(j.branch_id) : null,
+    customerLat: j?.customer_lat != null ? Number(j.customer_lat) : null,
+    customerLng: j?.customer_lng != null ? Number(j.customer_lng) : null,
+    deliveryFeeQuoted:
+      j?.delivery_fee_quoted != null ? Number(j.delivery_fee_quoted) : null,
+    deliveryDistanceKm:
+      j?.delivery_distance_km != null ? Number(j.delivery_distance_km) : null,
+    sourceOrderId: j?.source_order_id ? String(j.source_order_id) : undefined,
+  };
+}
+
+const DRIVER_JOB_SELECT = `
+  id, ticket_code, customer_name, customer_address, customer_phone, order_total, status,
+  branch_id, customer_lat, customer_lng, delivery_fee_quoted, delivery_distance_km, source_order_id
+`;
+
 export interface MyOfferRow {
   id: string;
   status: string;
   expiresAt: string;
-  job: {
-    id: string;
-    ticketCode: string;
-    customerName: string;
-    customerAddress: string;
-    customerPhone: string;
-    orderTotal: number;
-    status: string;
-  };
+  job: DriverJobInfo;
 }
 
 export async function listMyPendingOffers(): Promise<MyOfferRow[]> {
@@ -157,15 +190,38 @@ export async function listMyPendingOffers(): Promise<MyOfferRow[]> {
     .from('pd_delivery_offers')
     .select(`
       id, status, expires_at,
-      pd_delivery_jobs (
-        id, ticket_code, customer_name, customer_address, customer_phone, order_total, status
-      )
+      pd_delivery_jobs ( ${DRIVER_JOB_SELECT} )
     `)
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
 
   if (error) {
-    if (/does not exist|schema cache/i.test(error.message)) return [];
+    if (/does not exist|schema cache/i.test(error.message)) {
+      const { data: plain, error: e2 } = await sb
+        .from('pd_delivery_offers')
+        .select(`
+          id, status, expires_at,
+          pd_delivery_jobs (
+            id, ticket_code, customer_name, customer_address, customer_phone, order_total, status, branch_id, source_order_id
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      if (e2) {
+        if (/does not exist|schema cache/i.test(e2.message)) return [];
+        throw e2;
+      }
+      return (plain || []).map((row) => {
+        const jRaw = row.pd_delivery_jobs as Record<string, unknown> | Record<string, unknown>[] | null;
+        const j = Array.isArray(jRaw) ? jRaw[0] : jRaw;
+        return {
+          id: String(row.id),
+          status: String(row.status),
+          expiresAt: String(row.expires_at || ''),
+          job: mapDriverJob(j as Record<string, unknown> | undefined),
+        };
+      });
+    }
     throw error;
   }
 
@@ -176,15 +232,7 @@ export async function listMyPendingOffers(): Promise<MyOfferRow[]> {
       id: String(row.id),
       status: String(row.status),
       expiresAt: String(row.expires_at || ''),
-      job: {
-        id: String(j?.id || ''),
-        ticketCode: String(j?.ticket_code || ''),
-        customerName: String(j?.customer_name || ''),
-        customerAddress: String(j?.customer_address || ''),
-        customerPhone: String(j?.customer_phone || ''),
-        orderTotal: Number(j?.order_total) || 0,
-        status: String(j?.status || ''),
-      },
+      job: mapDriverJob(j as Record<string, unknown> | undefined),
     };
   });
 }
@@ -250,16 +298,9 @@ export interface ActiveAssignmentRow {
   id: string;
   assignedAt: string;
   pickedUpAt: string | null;
-  job: {
-    id: string;
-    ticketCode: string;
-    customerName: string;
-    customerAddress: string;
-    customerPhone: string;
-    orderTotal: number;
-    status: string;
-    sourceOrderId?: string;
-  };
+  deliveredAt?: string | null;
+  status?: string;
+  job: DriverJobInfo;
 }
 
 export async function listMyActiveAssignments(): Promise<ActiveAssignmentRow[]> {
@@ -269,9 +310,7 @@ export async function listMyActiveAssignments(): Promise<ActiveAssignmentRow[]> 
     .from('pd_delivery_assignments')
     .select(`
       id, assigned_at, picked_up_at, status,
-      pd_delivery_jobs (
-        id, ticket_code, customer_name, customer_address, customer_phone, order_total, status, source_order_id
-      )
+      pd_delivery_jobs ( ${DRIVER_JOB_SELECT} )
     `)
     .eq('status', 'active')
     .order('assigned_at', { ascending: false });
@@ -286,16 +325,38 @@ export async function listMyActiveAssignments(): Promise<ActiveAssignmentRow[]> 
       id: String(row.id),
       assignedAt: String(row.assigned_at || ''),
       pickedUpAt: row.picked_up_at ? String(row.picked_up_at) : null,
-      job: {
-        id: String(j?.id || ''),
-        ticketCode: String(j?.ticket_code || ''),
-        customerName: String(j?.customer_name || ''),
-        customerAddress: String(j?.customer_address || ''),
-        customerPhone: String(j?.customer_phone || ''),
-        orderTotal: Number(j?.order_total) || 0,
-        status: String(j?.status || ''),
-        sourceOrderId: j?.source_order_id ? String(j.source_order_id) : undefined,
-      },
+      status: String(row.status || ''),
+      job: mapDriverJob(j as Record<string, unknown> | undefined),
+    };
+  });
+}
+
+export async function listMyCompletedAssignments(limit = 40): Promise<ActiveAssignmentRow[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from('pd_delivery_assignments')
+    .select(`
+      id, assigned_at, picked_up_at, delivered_at, status,
+      pd_delivery_jobs ( ${DRIVER_JOB_SELECT} )
+    `)
+    .eq('status', 'completed')
+    .order('delivered_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    if (/does not exist|schema cache|delivered_at/i.test(error.message)) return [];
+    throw error;
+  }
+  return (data || []).map((row) => {
+    const jRaw = row.pd_delivery_jobs as Record<string, unknown> | Record<string, unknown>[] | null;
+    const j = Array.isArray(jRaw) ? jRaw[0] : jRaw;
+    return {
+      id: String(row.id),
+      assignedAt: String(row.assigned_at || ''),
+      pickedUpAt: row.picked_up_at ? String(row.picked_up_at) : null,
+      deliveredAt: row.delivered_at ? String(row.delivered_at) : null,
+      status: String(row.status || ''),
+      job: mapDriverJob(j as Record<string, unknown> | undefined),
     };
   });
 }
